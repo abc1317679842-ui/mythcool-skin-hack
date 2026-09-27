@@ -1,0 +1,10 @@
+# runtime artefacts (created by the installer, never committed)
+venv/
+log/
+state/
+__pycache__/
+*.pyc
+
+# local overrides
+tune.local.json
+*.log

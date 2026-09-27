@@ -1,0 +1,26 @@
+{
+  "_说明": "热调配置。改这个文件保存后约 1 秒生效 —— 不用重启软件，不用重跑安装，不用点 UAC。_ 开头的字段是注释。",
+  "_字段": "ix=新增数据项的横向位置 | iy/idy=起始纵向位置与行距 | tops=逐项覆盖纵向位置 | ifs=新增项字号 | minw/vm/vg/vfs=主排(内存/显存行)的数值预留宽/间距/字号 | lw=标签宽度(em) | hide=要隐藏的项 id | css=追加的 CSS（排版主战场） | refresh_ms=新增项的自带刷新节拍(毫秒)",
+  "_id对照": "mbt=主板温度 | mbv=主板电压 | memt=内存温度 | vrt=显存温度",
+  "_重要": "★ 下面的数值是按【VK03 机箱副屏 360x960 + AeeBiCui「博物馆1」皮肤】实测调出来的示例，换皮肤/换设备后位置和字号都要重新量。方法见 docs/03-排版改造.md；不想要这些改造时，把 css 改成空字符串再把 hide 改成 [] 即可回到干净状态。",
+  "ix": 169,
+  "iy": 150,
+  "idy": 38,
+  "minw": 0,
+  "vm": 0,
+  "vg": 6,
+  "vfs": 22,
+  "lw": 4.4,
+  "ifs": 20,
+  "tops": {
+    "mbt": 150,
+    "memt": 188,
+    "vrt": 226
+  },
+  "hide": [
+    "mbv"
+  ],
+  "refresh_ms": 3000,
+  "_css备注": "示例：把内存/显存行改成「电压 + 中文标签 + GB 数值」，并把网络上下行的 S 从斜切里救出来。不想要就清空本字段。",
+  "css": ".ProgressBar.outside.AeeAndCui{gap:0 !important;width:296px !important;}.ProgressBar.outside.AeeAndCui>span.mtc-inline.mtc-inline{order:1 !important;min-width:118px !important;font-size:22px !important;}.ProgressBar.outside.AeeAndCui>span.mtc-inline.mtc-inline .mtc-iv{font-size:22px !important;font-weight:700 !important;}.ProgressBar.outside.AeeAndCui>p{order:2 !important;margin-left:20px !important;font-size:22px !important;color:#9fd6ff !important;}.ProgressBar.outside.AeeAndCui>span:not(.mtc-inline){order:3 !important;margin-left:20px !important;flex:1 1 auto !important;text-align:right !important;font-size:22px !important;color:#ffffff !important;font-weight:700 !important;}.hardware-infor.outside.AeeAndCui:not(.img_back){transform:translateY(-10px) !important;font-size:28px !important;white-space:nowrap !important;width:auto !important;overflow:visible !important;min-width:0 !important;}.hardware-infor.outside.AeeAndCui:not(.img_back) *{white-space:nowrap !important;flex-shrink:0 !important;overflow:visible !important;font-size:28px !important;}.hardware-infor.outside.AeeAndCui:not(.img_back) p{font-size:28px !important;}.hardware-infor.outside.AeeAndCui:not(.img_back) span{font-size:22px !important;}.hardware-infor.outside.AeeAndCui:not(.img_back):not(.triangle_icon2){left:auto !important;right:-11px !important;}"
+}
