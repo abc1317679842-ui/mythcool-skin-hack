@@ -19,15 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Notes on scope / third-party rights
-
-This project operates on a running process in memory only. It does not copy,
-modify or redistribute any file, binary, firmware or asset belonging to
-Myth.Cool / Valkyrie (金钟宝智能科技) or any other vendor.
-
-"Valkyrie", "Myth.Cool" and other product names are used descriptively, solely
-to indicate compatibility. This is not an official product and is neither
-affiliated with nor endorsed by those vendors.
