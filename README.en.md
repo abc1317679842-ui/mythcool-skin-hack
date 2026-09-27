@@ -84,6 +84,28 @@ the (much lower) resource usage they advertise.
 - Official **Myth.Cool** installed and working
 - **Python 3.9+** on PATH (the installer builds a private venv and installs frida)
 
+## Supported devices
+
+Everything Myth.Cool drives, in principle — only the layout numbers in `tune.json`
+need re-measuring per skin:
+
+| Kind | Series |
+|---|---|
+| AIO liquid coolers | **E** / **V** / **B / B-GT** / **GLA** / **N** series (LCD models) |
+| Air coolers | **R** / **AL** / **ML** / **DX** series (LCD models) |
+| Case screens | **VK02** / **VK03** / **VK03-TOU** / **VK05** |
+
+USB ids: case screens `345F:9132` (MS9132), AIO screens `374A:A021`.
+
+## Keywords
+
+Valkyrie · Myth.Cool · case screen · sub display · secondary LCD · AIO cooler display ·
+LCD skin · runtime skin patching · Frida injection · Electron patch · add sensor fields ·
+memory & VRAM in GB · mainboard / memory / VRAM temperature · case mod · PC modding ·
+hardware monitor overlay · VK02 · VK03 · VK03-TOU · VK05 · MS9132 · 345F:9132
+
+(中文关键词见 [README.md](README.md#关键词))
+
 ## Install
 
 1. Download this repo anywhere (not a temp folder)

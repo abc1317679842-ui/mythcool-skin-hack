@@ -223,7 +223,41 @@ R / AL / ML / DX 系列风冷，VK02 / VK03 / VK03-TOU / VK05 机箱副屏），
 只要皮肤是 web 技术渲染的就能用 —— 但**具体的 CSS 选择器和坐标需要按你的皮肤重新量**。
 
 `tune.json` 里的默认值是按上述环境调的，换成别的皮肤时**排版数值需要自己校正**
-（方法见 `docs/03-排版改造.md`）。
+（方法见 [`docs/02-使用与调参.md`](docs/02-使用与调参.md)）。
+
+### 支持 / 可能支持的设备
+
+官方 Myth.Cool 覆盖的全部带屏设备（本项目理论上都能用，只是具体排版数值要自己量）：
+
+| 类别 | 系列 |
+|---|---|
+| 一体式水冷 | **E** / **V** / **B / B-GT** / **GLA** / **N** 系列（带屏款） |
+| 风冷散热器 | **R** / **AL** / **ML** / **DX** 系列（带屏款） |
+| 机箱副屏 | **VK02** / **VK03** / **VK03-TOU** / **VK05** |
+
+USB 设备 ID：机箱副屏 `345F:9132`（MS9132），水冷屏 `374A:A021`。
+
+---
+
+## 关键词
+
+> 单纯为了能被搜到。如果你是从搜索引擎或 GitHub 搜到这里的 —— 这些词都指向本项目。
+
+**中文**
+瓦尔基里 副屏 · 机箱副屏 改造 · 水冷屏 自定义 · 屏幕 显示 内容 修改 · 皮肤 修改 排版 ·
+内存 显存 显示 GB 绝对值 · 主板温度 内存温度 显存温度 · 加数据项 · 字号 位置 调整 ·
+不替换官方软件 · 不改文件 · 可逆
+
+**产品**
+瓦尔基里 VK02 / VK03 / VK03-TOU / VK05 机箱副屏 ·
+E / V / B / B-GT / GLA / N 系列水冷 · R / AL / ML / DX 系列风冷 ·
+Valkyrie · Myth.Cool · MS9132 · `345F:9132` · `374A:A021`
+
+**English**
+Valkyrie · Myth.Cool · case screen · sub display · secondary LCD · AIO cooler display ·
+LCD skin · runtime skin patching · Frida injection · Electron patch ·
+add sensor fields · memory & VRAM in GB · mainboard / memory / VRAM temperature ·
+case mod · PC modding · hardware monitor overlay · VK03 · VK05
 
 ---
 
