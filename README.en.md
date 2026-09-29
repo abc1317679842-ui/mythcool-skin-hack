@@ -11,6 +11,23 @@
 
 ---
 
+## Companion AI skill
+
+Don't want to read the docs and measure coordinates yourself? This repo ships a
+companion AI skill package, [`skill/`](skill/) — install it into your AI agent
+and just say "add a mainboard temperature field" or "show memory in GB".
+
+- **WorkBuddy**: copy to `~/.workbuddy/skills/mythcool-skin-injector/`
+- **Claude Code**: copy to `~/.claude/skills/mythcool-skin-injector/`
+
+The skill is not tied to specific hardware: the injection chain targets the
+Myth.Cool app itself, **fully proven on a Valkyrie VK03 case screen (360×960)**;
+other Myth.Cool devices (AIO cooler screens, other case screens) share the same
+mechanism and will most likely work — re-measure the geometry with the bundled
+probe tool. See [`skill/README.md`](skill/README.md).
+
+---
+
 ## What it is
 
 Myth.Cool is the official software for the whole Valkyrie line of LCD-equipped
@@ -97,12 +114,42 @@ need re-measuring per skin:
 
 USB ids: case screens `345F:9132` (MS9132), AIO screens `374A:A021`.
 
+## Known issue: occasional screen flicker-to-black (and this project)
+
+During development the author's case screen occasionally flickered to black for
+tens to a few hundred milliseconds and recovered on its own, content intact.
+After millisecond-level USB-stream log analysis, injector on/off A/B testing and
+comparing public reports:
+
+- **We cannot fully rule out any influence from the injector, but it is most
+  likely NOT the main cause** — the flicker still happened with the injector
+  disabled. The author personally suspects the Myth.Cool software itself,
+  though the exact mechanism is hard to pin down on the user side.
+- **The fix the author ended up using: uninstall Myth.Cool → clean up all leftovers
+  with a cleanup tool → reinstall from the official site → reboot → re-enable
+  the injector.** After this, several hours with the injector on showed no
+  flicker (previously several times a day) — **most likely fixed, but the
+  observation window is still open; no guarantees.**
+- Public reports of "black screens" are **not necessarily the same phenomenon**:
+  some accompany full-system freezes, some were screen-batch defects (there is
+  at least one "replaced by support, fixed" report). Compare carefully before
+  blaming anything.
+
+Full write-up (phenomenon classification, ruled-out causes, the version-skew
+finding, sourced case table, triage order) in
+[`docs/05-闪黑排查.md`](docs/05-闪黑排查.md) (Chinese).
+
 ## Keywords
 
 Valkyrie · Myth.Cool · case screen · sub display · secondary LCD · AIO cooler display ·
 LCD skin · runtime skin patching · Frida injection · Electron patch · add sensor fields ·
 memory & VRAM in GB · mainboard / memory / VRAM temperature · case mod · PC modding ·
 hardware monitor overlay · VK02 · VK03 · VK03-TOU · VK05 · MS9132 · 345F:9132
+
+**flicker / blackout**
+screen flicker · flicker to black · black screen · screen goes black briefly ·
+screen flashing · display flickering · LCD blackout · secondary screen flicker ·
+case screen blackouts · screen flicker troubleshooting · flicker caused by injector?
 
 (中文关键词见 [README.md](README.md#关键词))
 
