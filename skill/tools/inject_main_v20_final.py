@@ -14,6 +14,10 @@ v20 变更（2026-09-30，外部评审采纳项）：
       到 .mainAll/.mainpage/body（方向全错），改为 RES.warn 标红 + 拒绝挂载。
   B2. pushTune 前检查窗口存活（isDestroyed），销毁则重找 —— 重插屏/分辨率切换后
       热调不再打在死窗口上。
+  P3 修订（2026-09-30 第二轮评审）：SYM MISS 只淘汰当前候选，不再整单否决 ——
+      无 PID 回退模式下候选可能混入子进程；全部候选 miss 且无一成功才 exit 3；
+      miss 候选检测到 error 消息即止损，不再白等 150 秒。调用侧（Inject.ps1）
+      同步：rc=3 -> SYMFAIL:<pid> 停止重试，MythCool 重启（新 pid）自动重试一次。
 
 与手动调试版 phase30_v13.py 的差异（★ 布局逻辑 100% 相同，一个字没改）：
   1. 路径全部落在 C:\\ProgramData\\MythCoolInject\\，不再依赖 WorkBuddy 会话目录
@@ -24,8 +28,8 @@ v20 变更（2026-09-30，外部评审采纳项）：
   4. 退出码：0=注入成功（调用方才写 last_pid 记账）
              1=有进程但注入失败（不记账 → 下一轮自动重试）
              2=没找到 MythCool 进程（不记账）
-             3=V8 符号缺失（SYM MISS）—— 官方软件换了 Electron/V8 大版本，
-               重试无意义，先跑符号探测（见 SKILL.md「版本升级自检」）
+             3=全部候选 V8 符号缺失（SYM MISS）—— 官方软件换了 Electron/V8 大版本，
+               重试无意义（调用侧 SYMFAIL 停试），先跑符号探测（见 SKILL.md「版本升级自检」）
   5. 日志 append 到 log\\inject.log，带 [时间][py] 前缀
      （Inject.ps1 写的那份带 [PS] 前缀，同一文件对照看）
   6. ★ 注入完成即 detach —— renderer 里的 CSS/DOM/定时器、以及主进程里的
@@ -96,7 +100,11 @@ PATCH = r'''
        再由 ensureLayer()/instCSS() 重建 -> 元素重新挂载
      这就是「闪屏」最直接的一条成因链 —— 而且是【热调越频繁、闪得越勤】。
      修法：清理列表里【只留真正废弃的历史 id】，当前版本在用的必须剔除。
-     （历史 id 都是 v10~v12 的，v13 起改用 __mtc_v13css，一直沿用到 v17。） */
+     （历史 id 都是 v10~v12 的，v13 起改用 __mtc_v13css，一直沿用到 v17。）
+     ★ 命名约定：__mtc_v13css 这个 id 自 v13 起冻结，虽然名字带 v13 但它就是
+     【当前版本在用的活节点 id】，不随主版本号升级改名 —— 改名 = 旧 id 进 STALE
+     + 新 id 上线，必须两处同改，否则每次热调都触发一轮「删活节点->重建」闪屏。
+     要改名就按这个迁移流程做，别只改一处。） */
   var STALE = ['__mtc_v10css', '__mtc_v11css', '__mtc_v12css',
                '__probe_css', '__probe_css2', '__mtc_tune'];
   function cleanOld() {
@@ -965,9 +973,14 @@ for pid in cands:
         sc.load()
         time.sleep(4)
         # JS 侧最多等 120 秒窗口 —— 这里给 150 秒
+        # ★v20 修订(P3)：SYM MISS 时 agent 顶层 throw 走异步 error 消息、结果文件
+        # 永远不会出现 —— 原逻辑会白等满 150 秒。检测到 error/SYM MISS 即止损。
         for _ in range(75):
             if os.path.exists(OUT):
                 got = True
+                break
+            if any(m.get('type') == 'error' or 'SYM MISS' in str(m.get('payload') or '')
+                   for m in msgs):
                 break
             time.sleep(2)
         for m in msgs:
@@ -975,19 +988,22 @@ for pid in cands:
             plog('  ' + (pl.get('m') if isinstance(pl, dict) else str(pl)))
         # ★v20(A1)：符号缺失 = 版本升级第一失效点。显式落账（symMiss: true + exit 3），
         # 不留「下一轮重试」的假希望 —— 符号都变了，重试一万次也不会成功。
+        # ★v20 修订(P3)：SYM MISS 只淘汰当前候选，不整单否决 —— 无 PID 回退模式下
+        # cands 可能混入子进程，第一个候选 miss 不代表主进程也 miss。
+        # 全部候选都 miss 且无一成功才 exit 3（见循环末尾 sym_miss and not ok）。
         allm = ' | '.join(
             (m.get('payload') or {}).get('m', '') if isinstance(m.get('payload'), dict)
             else str(m.get('payload') or '')
             for m in msgs)
         if 'SYM MISS' in allm:
             sym_miss = True
-            plog('  符号缺失落账: last_result.json symMiss=true, exit 3')
+            plog('  候选 pid=%s 符号缺失，跳过（若所有候选都 miss 则最终 exit 3）' % pid)
             try:
                 with open(OUT, 'w', encoding='utf-8') as f:
                     json.dump({'injected': False, 'symMiss': True, 'msg': allm[:500]}, f, ensure_ascii=False)
             except Exception as e:
                 plog('  symMiss 落账失败: %s' % e)
-            break
+            continue
     except Exception as e:
         plog('  attach 失败 %s %s' % (type(e).__name__, e))
     finally:
@@ -1029,8 +1045,8 @@ for pid in cands:
             ok = True
         break
 
-if sym_miss:
-    plog('结果: V8 符号缺失（exit 3）—— 官方软件可能换了 Electron/V8 大版本，先跑版本升级自检')
+if sym_miss and not ok:
+    plog('结果: 全部候选 V8 符号缺失（exit 3）—— 官方软件可能换了 Electron/V8 大版本，先跑版本升级自检')
     sys.exit(3)
 plog('结果: %s' % ('成功' if ok else '失败'))
 sys.exit(0 if ok else 1)

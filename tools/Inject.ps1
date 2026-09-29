@@ -1,7 +1,8 @@
 # ============================================================
 #  Myth.Cool Skin Hack - idempotent entry point
 #
-#  Called by the scheduled task \MythCoolSkinHack (every minute).
+#  Called by the scheduled task \MythCoolInject (every minute).
+#  (Legacy installs registered it as \MythCoolSkinHack - same payload.)
 #
 #  Logic:
 #    find the MythCool MAIN process
@@ -10,6 +11,10 @@
 #      pid != state      -> run inject_main.py
 #                             rc 0 -> book the pid (done)
 #                             rc 2 -> not visible, retry next round
+#                             rc 3 -> V8 symbols missing (version skew):
+#                                     record SYMFAIL:<pid>, stop retrying.
+#                                     Retries automatically ONLY when Myth.Cool
+#                                     restarts (new pid = new chance).
 #                             else -> FAILED, do NOT book, retry next round
 #
 #  State is only written on success: if a patch attempt fails (e.g. the
@@ -128,6 +133,10 @@ if ($Probe) {
 }
 
 # ---------- 2) idempotent fast path ----------
+# SYMFAIL:<pid> = last attempt hit missing V8 symbols (version skew). Retry is
+# pointless for the SAME pid; a new pid (Myth.Cool restarted) gets one fresh
+# attempt automatically. -Force overrides.
+if ((-not $Force) -and ($last -like 'SYMFAIL:*') -and ($cur -eq ($last -replace '^SYMFAIL:', ''))) { exit 0 }
 if ((-not $Force) -and ($cur -eq $last)) { exit 0 }
 
 $started = ''
@@ -135,6 +144,8 @@ try { $started = (Get-Process -Id $mainPid -ErrorAction Stop).StartTime.ToString
 
 if ($last -eq 'NONE') {
     Log ('MythCool started main-pid=' + $cur + ' started=' + $started + ' procs=' + $rawCount + ' -> injecting')
+} elseif ($last -like 'SYMFAIL:*') {
+    Log ('MythCool restarted after symbol failure (' + $last + ' -> pid=' + $cur + ' started=' + $started + ' procs=' + $rawCount + ') -> one fresh attempt')
 } elseif ($last -eq $cur) {
     Log ('same instance pid=' + $cur + ' but -Force given -> re-injecting')
 } else {
@@ -166,6 +177,10 @@ if ($rc -eq 0) {
 } elseif ($rc -eq 2) {
     Log ('inject skipped: MythCool not visible to frida (rc=2) in ' + $sec + 's -> retry next round')
     exit 0
+} elseif ($rc -eq 3) {
+    Log ('inject ABORTED rc=3: V8 symbols missing (version skew) -> stopping retries. Run the symbol probe (see SKILL.md version-upgrade self-check). Will retry automatically only after Myth.Cool restarts.')
+    WriteState ('SYMFAIL:' + $cur)
+    exit 3
 } else {
     Log ('inject FAILED rc=' + $rc + ' in ' + $sec + 's -> not booked, retry next round')
     exit 1

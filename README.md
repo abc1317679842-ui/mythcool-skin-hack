@@ -151,7 +151,7 @@ GitHub 上已有一批同类开源项目，走的是**另一条路** —— 绕�
 
 ```
 [1/4] 验证静默启动器
-[2/4] 注册计划任务 \MythCoolSkinHack
+[2/4] 注册计划任务 \MythCoolInject
 [3/4] 立即执行一次注入
 [4/4] 报告结果
 ```
@@ -335,17 +335,24 @@ case mod · PC modding · hardware monitor overlay · VK03 · VK05
 
 ## 卸载 / 回滚
 
+先看你机器上任务实际叫什么（老安装包注册的名字可能不同）：
+
 ```bat
-:: 删除计划任务（需要管理员）
-schtasks /Delete /TN MythCoolSkinHack /F
+schtasks /Query /FO LIST | findstr /i MythCool
+```
+
+```bat
+:: 删除计划任务（需要管理员，名字用上面查到的）
+schtasks /Delete /TN MythCoolInject /F
 
 :: 删除程序目录
-rmdir /s /q C:\ProgramData\MythCoolSkinHack
+rmdir /s /q C:\ProgramData\MythCoolInject
 ```
 
 **只删计划任务、不跑安装器**，注入的补丁也会在下次 Myth.Cool 重启后完全消失。
 
-**本项目涉及的计划任务只有一个**：`MythCoolSkinHack`。如果你的机器上还看到
+**本项目涉及的计划任务**：`MythCoolInject`（老安装包可能叫 `MythCoolSkinHack`，
+两个名字删掉哪个都行，没有第三个）。如果你的机器上还看到
 `MythCoolScreenFix` / `MythCoolFix`（`C:\ProgramData\MythCoolFix\`）—— 那是**另一套
 独立的「唤醒后副屏睡死」修复工具**（睡眠唤醒后重启 Myth.Cool），**不属于本项目**，
 删不删与本项目无关；两者共存没有冲突（它重启 Myth.Cool 后，本项目的计划任务会

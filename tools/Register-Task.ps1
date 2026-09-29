@@ -24,7 +24,10 @@
 # ============================================================
 $ErrorActionPreference = 'Stop'
 
-$TASK     = 'MythCoolSkinHack'
+# NOTE: keep this in sync with the deployed task name. One older install used
+# 'MythCoolSkinHack' - it is removed below so only ONE task remains.
+$TASK     = 'MythCoolInject'
+$LEGACY   = 'MythCoolSkinHack'
 $ROOT     = $PSScriptRoot
 $ENTRY    = Join-Path $ROOT 'Inject.ps1'
 $LAUNCHER = Join-Path $ROOT 'InjectSilent.vbs'
@@ -32,7 +35,12 @@ $LAUNCHER = Join-Path $ROOT 'InjectSilent.vbs'
 if (-not (Test-Path -LiteralPath $ENTRY))    { Write-Host ('MISSING: ' + $ENTRY);    exit 1 }
 if (-not (Test-Path -LiteralPath $LAUNCHER)) { Write-Host ('MISSING: ' + $LAUNCHER); exit 1 }
 
-# ---------- remove any previous registration ----------
+# ---------- remove any previous registration (current + legacy name) ----------
+try {
+    $null = Get-ScheduledTask -TaskName $LEGACY -ErrorAction Stop
+    Unregister-ScheduledTask -TaskName $LEGACY -Confirm:$false -ErrorAction Stop
+    Write-Host ('removed legacy task: ' + $LEGACY)
+} catch {}
 try {
     $null = Get-ScheduledTask -TaskName $TASK -ErrorAction Stop
     Unregister-ScheduledTask -TaskName $TASK -Confirm:$false -ErrorAction Stop

@@ -197,12 +197,21 @@ matters. Start here:
 
 ## Uninstall
 
+First check what the task is actually called on your machine (older installers
+used a different name):
+
 ```bat
-schtasks /Delete /TN MythCoolSkinHack /F
-rmdir /s /q C:\ProgramData\MythCoolSkinHack
+schtasks /Query /FO LIST | findstr /i MythCool
 ```
 
-**This project uses exactly one scheduled task**: `MythCoolSkinHack`. If your machine also
+```bat
+schtasks /Delete /TN MythCoolInject /F
+rmdir /s /q C:\ProgramData\MythCoolInject
+```
+
+**Scheduled tasks used by this project**: `MythCoolInject` (older installers may
+have registered `MythCoolSkinHack` — either name is fine to delete, there is no
+third one). If your machine also
 has `MythCoolScreenFix` / `MythCoolFix` (`C:\ProgramData\MythCoolFix\`) — that is a
 **separate** wake-from-sleep repair tool (restarts Myth.Cool after sleep), **not part of
 this project**. The two coexist fine: after it restarts Myth.Cool, this project's task
