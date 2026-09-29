@@ -10,8 +10,12 @@ Inject、Install.bat 又装到 SkinHack 目录」的三处错位，以及「安�
   1. 仓库内任何文件都不得再出现旧任务名 MythCoolSkinHack（除明确标注 legacy 的地方）
   2. 安装路径只允许 MythCoolInject（%ProgramData%\\MythCoolInject）
   3. 注入器定稿源与 Install 用的模板必须是同一份内容（不出现两个版本）
-  4. 版本号四处同值：Python `VER = N` / JS `RES = { v: N }` / `RES.ver = N`
-     （synchk.py 只查单个文件；这里查的是【跨文件】是否一致）
+  4. 版本号同值，两层都查：
+     - 跨文件：Install 模板与定稿源必须是同一版本
+     - 同文件内：`VER = N` / `RES = { v: N }` / `RES.ver = N` 三处取值集合必须为 1
+       （只改一处、漏改另一处是常见漂移，跨文件比对会漏掉，所以两条都做）
+     ★ 分工：`synchk.py` 按单文件查（改完源码必跑），本脚本查交付物 + 跨文件一致性；
+       两者互为交叉验证，不是替代关系。
 
 用法：python repochk.py [仓库根]
 退出码：0 全绿 / 1 有分歧
@@ -123,6 +127,18 @@ if vers.get('VER') and vers.get('RES'):
     b = {v for _, v in live(vers['RES'])}
     if a and b and a != b:
         fails.append('[版本] Python VER=%s 与 JS RES=%s 不同值' % (sorted(a), sorted(b)))
+
+# ★ 同文件内三处必须同值（跨文件比会漏掉「只改了 RES、没改 RES.ver」这种）：
+#   VER = N / RES = { v: N } / RES.ver = N 三者在该文件内取值集合 size 必须为 1。
+#   synchk.py 是按单文件查的，这里对交付物再查一遍，两者互为交叉验证。
+byfile = {}
+for key in ('VER', 'RES', 'RES.ver'):
+    for f, v in vers.get(key, set()):
+        byfile.setdefault(f, set()).add(v)
+for f, vals in sorted(byfile.items()):
+    if os.path.normpath(f).replace('\\', '/').lower() in LIVE and len(vals) > 1:
+        fails.append('[版本] %s 内部三处版本不同值: %s（VER / RES={v:N} / RES.ver 必须同值）'
+                     % (f, sorted(vals)))
 
 print('repochk: 仓库根 = %s' % ROOT)
 for w in warns:

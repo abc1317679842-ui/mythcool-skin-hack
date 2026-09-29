@@ -128,7 +128,7 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 | `gen_install.py` | **从模板生成某一版装机脚本**（保证纯 ASCII + CRLF + CONFIG 正确，并自动跑 trap audit）；新增版本只需往脚本里的 `NOTES` 字典加一条 | `<python> "<本文件>" <VER> [TAG] [SRC] [DST]` | 否 |
 | `verify_markers.ps1` | UTF-8 安全的标记校验器，**取代 findstr**。`-Neg` 跑反向断言。退出码 0=全绿 / 1=缺必需 / 2=有违禁 / 3=文件不存在 | `powershell -File "<本文件>" -Path <源> -Ver <VER> [-Neg]` | 否 |
 | `cmdcheck.py` | **交付 .cmd 前的强制校验器**：转 CRLF + 断言纯 ASCII / 零裸 LF / 所有 goto·call 目标存在 / 括号配平 / 无被延迟展开吃掉的裸 `!` | `<python> cmdcheck.py FILE.cmd [FILE2 ...] [--no-write]` | 否 |
-| `repochk.py` | **全仓库常量一致性**（防漂移）：断言任务名只剩 `MythCoolInject`、安装路径只剩 `%ProgramData%\MythCoolInject`、Install 模板与定稿源同版本、Python `VER` 与 JS `RES.ver` 同值。仓库有两条部署路径（Install.bat / Finalize_*.cmd），历史上出过「装的是 v13 模板」的双版本事故 | `<python> repochk.py [仓库根]` | 否 |
+| `repochk.py` | **全仓库常量一致性**（防漂移）：断言任务名只剩 `MythCoolInject`、安装路径只剩 `%ProgramData%\MythCoolInject`、Install 模板与定稿源同版本、**同文件内 `VER`/`RES={v:N}`/`RES.ver` 三处同值**。仓库有两条部署路径（Install.bat / Finalize_*.cmd），历史上出过「装的是 v13 模板」的双版本事故。与 `synchk.py` 是**交叉验证不是替代**：synchk 按单文件查源码，repochk 查交付物 + 跨文件一致——**两个都要跑** | `<python> repochk.py [仓库根]` | 否 |
 | `Finalize_v19.cmd` | **v19 存档**（已被 v20 取代） | — | **是** |
 | `Finalize_v20.cmd` | **★★★ 一键定稿包（清场 + 部署 v20 + 重注入）**：管理员终端跑一次。回退点自动升级为 `bak_v19`（从 v19 存档快照，bak_v17 保留作深回退）；验收两项：log 无 `SYM MISS`（用 logscan.ps1，UTF-8 安全）+ 无 `last_beat.json`。已过干跑验证 | `"<本文件>"`（**管理员终端**） | **是** |
 | `logscan.ps1` | UTF-8 安全的日志子串检查（替代 findstr）：`-Path <log> -Need "SYM MISS"`。退出码 0=未找到 / 1=找到 / 3=文件读不到 | `powershell -File "<本文件>" -Path <log> -Need <子串>` | 否 |
