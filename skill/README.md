@@ -1,4 +1,4 @@
-# skill/ — mythcool-skin-injector 配套技能
+# skill/ — mythcool-injector 配套技能
 
 本目录是 [mythcool-skin-hack](../README.md) 的配套 AI 技能包，遵循主流智能体的 `SKILL.md` 约定
 （WorkBuddy / Claude Code / 其他支持 Agent Skills 的助手）。
@@ -13,8 +13,18 @@
 
 | 助手 | 技能目录 |
 |---|---|
-| WorkBuddy | `~/.workbuddy/skills/mythcool-skin-injector/` |
-| Claude Code | `~/.claude/skills/mythcool-skin-injector/` |
+| WorkBuddy | `~/.workbuddy/skills/mythcool-injector/` |
+| Claude Code | `~/.claude/skills/mythcool-injector/` |
+
+> ⚠️ **本目录的 `SKILL.md` 与已安装的那份必须保持一致。**
+> 同名的技能正文会同时存在于「仓库」和「本机技能目录」两处，各改一点就会漂移成两份不同文档
+> （2026-09-30 实测过一次：本机那份还停在 v19、仓库那份已经讲到 v22）。
+> 检查/同步用：
+> ```bash
+> python skill/tools/skillsync.py            # 只检查
+> python skill/tools/skillsync.py --to-local # 以仓库为准，推到本机技能目录
+> ```
+> `repochk.py` 也会顺手警告不一致。
 
 ## 前置条件
 
@@ -24,7 +34,14 @@
 
 ## 目录
 
-- `SKILL.md` — 技能正文（架构速查 / 四条铁律 / 坐标系 / 工具表 / 改源-校验-装机流程 / tune.json 参数 / 排查指南 / 踩坑表 / 红旗清单）
-- `tools/` — 校验与装机脚本（`synchk.py` 静态校验、`gen_install.py` 生成装机包、`cmdcheck.py` cmd 陷阱检查、`probe_geom.py` 几何探针等）
+- `SKILL.md` — 技能正文（架构速查 / 六条铁律 / 坐标系 / **皮肤识别与分皮肤绑定** / **主进程自愈守卫** /
+  工具表 / 改源-校验-装机流程 / tune.json 参数 / 反借口表 / 踩坑表 / 红旗清单 / 环境边界）
+- `tools/` — 校验器与探针：
+  - `synchk.py` 单文件静态校验（AST + 三段 JS + CORE 标记 + 版本三处同值 + STALE 洁净 + beat 移除）
+  - `repochk.py` 交付物 + 跨文件一致性（任务名 / 安装路径 / 定稿源与装机模板同版本）
+  - `probe_geom.py` 几何探针 · `probe_skins.py` **皮肤探测（换机器必跑，只读）**
+  - `skillsync.py` 本文件与已安装技能正文的一致性检查/同步
+  - `cmdcheck.py` cmd 陷阱检查 · `gen_install.py` / `tplchk.py` / `verify_markers.ps1` / `logscan.ps1`
+    （后四个属于 v19/v20 的装机包流水线，v22 起交付改走「定稿源 + synchk + repochk + 手动 Copy-Item」，仍可用于审任何 `.cmd`）
   - ⚠️ 工具内的本机绝对路径已替换为 `C:\ProgramData\MythCoolInject\skill` / `\workspace` 占位，
     首次使用前请按你的实际安装位置全局搜索替换

@@ -80,7 +80,7 @@ for p in walk():
                          % (os.path.relpath(p, ROOT), name, DEST))
 
 # ---- 3) 两版注入器 ----
-src = os.path.join(ROOT, 'skill', 'tools', 'inject_main_v20_final.py')
+src = os.path.join(ROOT, 'skill', 'tools', 'inject_main_v22_final.py')
 tmpl = os.path.join(ROOT, 'tools', 'inject_main.py')
 if os.path.isfile(src) and os.path.isfile(tmpl):
     a = read(src)
@@ -110,7 +110,7 @@ for p in walk():
         vers.setdefault('RES.ver', set()).add((os.path.relpath(p, ROOT), mm.group(1)))
 
 # 只比较【当前交付物】：v18/v19 是历史存档，版本本来就不同，不算 drift
-LIVE = {'skill/tools/inject_main_v20_final.py', 'tools/inject_main.py'}
+LIVE = {'skill/tools/inject_main_v22_final.py', 'tools/inject_main.py'}
 def live(s):
     return {(f, v) for f, v in s if f.replace('\\', '/').lower() in LIVE}
 
@@ -139,6 +139,25 @@ for f, vals in sorted(byfile.items()):
     if os.path.normpath(f).replace('\\', '/').lower() in LIVE and len(vals) > 1:
         fails.append('[版本] %s 内部三处版本不同值: %s（VER / RES={v:N} / RES.ver 必须同值）'
                      % (f, sorted(vals)))
+
+# ---- 5) 技能正文漂移（仓库那份 vs 本机已安装那份）----
+# 同一份 SKILL.md 会同时存在两处：仓库 skill/SKILL.md（分发/推 GitHub）和
+# 本机技能目录 ~/.workbuddy/skills/<name>/SKILL.md（AI 实际加载）。
+# 各改一点就会漂移成两份不同文档（2026-09-30 实测：本机那份停在 v19，仓库那份已到 v22）。
+# 这里只 WARN 不 FAIL —— 别人的机器上可能根本没装这个技能。
+try:
+    import hashlib
+    _rs = os.path.join(ROOT, 'skill', 'SKILL.md')
+    _h = lambda p: hashlib.sha256(io.open(p, 'rb').read()).hexdigest()
+    _cands = [os.path.expanduser('~/.workbuddy/skills/mythcool-injector/SKILL.md'),
+              os.path.expanduser('~/.claude/skills/mythcool-injector/SKILL.md')]
+    _found = next((c for c in _cands if os.path.isfile(c)), None)
+    if os.path.isfile(_rs) and _found:
+        if _h(_rs) != _h(_found):
+            warns.append('[技能漂移] 仓库 skill/SKILL.md 与本机技能正文不一致 —— '
+                         '用 skill/tools/skillsync.py 检查并同步（--to-local / --to-repo）')
+except Exception:
+    pass
 
 print('repochk: 仓库根 = %s' % ROOT)
 for w in warns:

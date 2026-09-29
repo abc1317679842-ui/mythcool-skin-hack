@@ -52,7 +52,7 @@ echo.
 
 rem ------------------------- CONFIG -------------------------
 set PD=C:\ProgramData\MythCoolInject
-set SRC=C:\ProgramData\MythCoolInject\skill\tools\inject_main_v20_final.py
+set SRC=C:\ProgramData\MythCoolInject\skill\tools\inject_main_v22_final.py
 set SRC19=C:\ProgramData\MythCoolInject\skill\tools\inject_main_v19_final.py
 set VER=20
 set VFY=C:\ProgramData\MythCoolInject\skill\tools\verify_markers.ps1

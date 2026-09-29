@@ -242,6 +242,10 @@ def main():
         return 1
 
     d = json.load(open(out, encoding='utf-8'))
+    try:
+        os.remove(out)          # 中间产物不留痕（保持 tools/ 干净，别把临时文件推上仓库）
+    except Exception:
+        pass
     for s in d.get('steps', []):
         print('·', s)
     for r in d.get('results', []):

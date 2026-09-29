@@ -106,9 +106,16 @@ runs elevated** while your terminal doesn't — check that before blaming symbol
 - 🎛 **Full control over the built-in skin** — position, size, color, spacing, order
 - ➕ **New data fields** — mainboard temp/voltage, memory temp, VRAM temp, memory/VRAM in GB…
 - 🔄 **Own refresh tick** — aligned with the native 3 s beat, value-deduplicated so it never fights Vue
-- 🚀 **Auto-start** — a scheduled task checks every minute; ~120 ms per check, ~0.07 % of one core
+- 🚀 **Auto-start** — a scheduled task checks every minute and re-patches when the
+  process changed **or when the injector itself changed**. Sub-second per check.
+  (v22 dropped the "pid unchanged -> skip" shortcut: it silently swallowed every
+  injector update. Correctness beats the few hundred milliseconds it saved.)
 - 🪟 **No window flash** — launched via `wscript.exe` (GUI subsystem) with a hidden child
-- 🧩 **Idempotent** — only acts when the process actually changed; failures are never booked, so it retries
+- 🧩 **Idempotent** — only acts when the process or the injector changed; failures are never booked, so it retries
+- 🎨 **Skin-aware** — layout applies only to the skins you list. Switch to another skin
+  (including **custom skins** and anything unrecognised) and every change is **undone**
+- 🩹 **Self-healing** — switching skins recreates the page and wipes the patch; a guard
+  in the main process notices and **re-applies immediately**
 - 🔥 **Hot tuning** — edit `tune.json`, saved = live. No restart, no reinstall, no UAC
 - ♻️ **Fully reversible** — delete the task and the folder, nothing left behind
 
@@ -116,9 +123,19 @@ runs elevated** while your terminal doesn't — check that before blaming symbol
 
 - Windows 10 / 11
 - Official **Myth.Cool** installed and working
-- **Python 3.9+** on PATH (the installer builds a private venv and installs frida)
+- **Python 3.9+** on PATH (the installer builds a private venv; if no base Python is found it
+  falls back to the bundled embedded runtime -- the injector **resolves the interpreter at
+  runtime**, hard-coding either layout breaks the other with `FATAL missing python`)
 
 ## Supported devices
+
+> ⚠️ **Skin ids are device-specific.** The built-in ids (`AeeBiCui`, `DreamMonitoring`,
+> `FallFlower2` — mode 31 / 29 / 30) were measured on **one** VK03 unit. Official skins get
+> added and removed, and different devices ship with different defaults, so copying them
+> to another machine will most likely match nothing.
+> Run `skill/tools/probe_skins.py` (read-only) first: it lists the skins actually installed,
+> their root class and mode number, and prints a ready-to-paste `_skinRules` block.
+> Unrecognised = **left untouched** on purpose (safe default, not a failure).
 
 Everything Myth.Cool drives, in principle — only the layout numbers in `tune.json`
 need re-measuring per skin:
@@ -192,8 +209,8 @@ matters. Start here:
 |---|---|
 | [`docs/01-原理.md`](docs/01-原理.md) | Why injection; the V8 injection chain; why frida can detach |
 | [`docs/02-使用与调参.md`](docs/02-使用与调参.md) | Install, `tune.json` reference, measuring positions |
-| [`docs/03-持久化.md`](docs/03-持久化.md) | Scheduled-task design: idempotency, no window, performance |
-| [`docs/04-踩坑合集.md`](docs/04-踩坑合集.md) | ★ **15 real pitfalls**, each with symptom → cause → fix |
+| [`docs/03-持久化.md`](docs/03-持久化.md) | Scheduled-task design: idempotency (PID + injector hash), no window, **self-healing after the page is rebuilt**, performance |
+| [`docs/04-踩坑合集.md`](docs/04-踩坑合集.md) | ★ **30 real pitfalls**, each with symptom → cause → fix |
 
 ## Uninstall
 

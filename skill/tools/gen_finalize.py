@@ -2,7 +2,7 @@
 """生成 Finalize_v20.cmd —— 清场 + 部署 v20 + 恢复注入（一键）
 
 v20 相对 v19 的差别（脚本层面）：
-  * 部署源改为 inject_main_v20_final.py（A1 符号显式报错 / A2 日志双值 /
+  * 部署源改为 inject_main_v22_final.py（A1 符号显式报错 / A2 日志双值 /
     A3 删 tick / B1 宿主拒绝降级 / B2 窗口存活检查）
   * 回退点升级：bak_v19（从正在跑的 v19 快照）；bak_v17 仍保留（更深的回退）
   * 验收新增「log 里不得出现 SYM MISS」（A1 的部署后验证）；
@@ -79,7 +79,7 @@ echo.
 
 rem ------------------------- CONFIG -------------------------
 set PD=C:\ProgramData\MythCoolInject
-set SRC=C:\ProgramData\MythCoolInject\skill\tools\inject_main_v20_final.py
+set SRC=C:\ProgramData\MythCoolInject\skill\tools\inject_main_v22_final.py
 set SRC19=C:\ProgramData\MythCoolInject\skill\tools\inject_main_v19_final.py
 set VER=20
 set VFY=C:\ProgramData\MythCoolInject\skill\tools\verify_markers.ps1
