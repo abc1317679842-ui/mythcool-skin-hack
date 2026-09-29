@@ -340,6 +340,12 @@ rmdir /s /q C:\ProgramData\MythCoolSkinHack
 
 **只删计划任务、不跑安装器**，注入的补丁也会在下次 Myth.Cool 重启后完全消失。
 
+**本项目涉及的计划任务只有一个**：`MythCoolSkinHack`。如果你的机器上还看到
+`MythCoolScreenFix` / `MythCoolFix`（`C:\ProgramData\MythCoolFix\`）—— 那是**另一套
+独立的「唤醒后副屏睡死」修复工具**（睡眠唤醒后重启 Myth.Cool），**不属于本项目**，
+删不删与本项目无关；两者共存没有冲突（它重启 Myth.Cool 后，本项目的计划任务会
+在下一分钟自动重新注入）。
+
 想临时看看原始皮肤长什么样？直接重启 Myth.Cool 即可（补丁全在内存里，重启即净）。
 
 ---

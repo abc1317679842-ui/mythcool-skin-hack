@@ -188,6 +188,19 @@ matters. Start here:
 | [`docs/03-持久化.md`](docs/03-持久化.md) | Scheduled-task design: idempotency, no window, performance |
 | [`docs/04-踩坑合集.md`](docs/04-踩坑合集.md) | ★ **15 real pitfalls**, each with symptom → cause → fix |
 
+## Uninstall
+
+```bat
+schtasks /Delete /TN MythCoolSkinHack /F
+rmdir /s /q C:\ProgramData\MythCoolSkinHack
+```
+
+**This project uses exactly one scheduled task**: `MythCoolSkinHack`. If your machine also
+has `MythCoolScreenFix` / `MythCoolFix` (`C:\ProgramData\MythCoolFix\`) — that is a
+**separate** wake-from-sleep repair tool (restarts Myth.Cool after sleep), **not part of
+this project**. The two coexist fine: after it restarts Myth.Cool, this project's task
+re-injects within a minute.
+
 ## Disclaimer
 
 - This project modifies a **running process's memory only**. It does not modify,
