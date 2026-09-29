@@ -135,22 +135,29 @@ USB ids: case screens `345F:9132` (MS9132), AIO screens `374A:A021`.
 
 During development the author's case screen occasionally flickered to black for
 tens to a few hundred milliseconds and recovered on its own, content intact.
-After millisecond-level USB-stream log analysis, injector on/off A/B testing and
-comparing public reports:
+After millisecond-level USB-stream log analysis, injector on/off A/B testing,
+a clean reinstall and system-event forensics — **as of this writing the root
+cause is still unknown.** What can be said responsibly:
 
 - **We cannot fully rule out any influence from the injector, but it is most
   likely NOT the main cause** — the flicker still happened with the injector
-  disabled. The author personally suspects the Myth.Cool software itself,
-  though the exact mechanism is hard to pin down on the user side.
-- **The fix the author ended up using: uninstall Myth.Cool → clean up all leftovers
-  with a cleanup tool → reinstall from the official site → reboot → re-enable
-  the injector.** After this, several hours with the injector on showed no
-  flicker (previously several times a day) — **most likely fixed, but the
-  observation window is still open; no guarantees.**
+  disabled, and at the moment of a recurrence the three evidence lines
+  (USB-stream heartbeat, injector log, system events) were all clean
+  (see docs/05 §4.2, Chinese).
+- **The clean reinstall (see docs/05) only mitigates — it does not fix.**
+  After reinstalling, no flicker for several hours, then it recurred the same
+  night. Still worth doing (cheapest step, rules out the version-skew
+  variable), but don't expect it to solve the problem alone.
+- The author personally suspects the Myth.Cool software itself (rendering
+  layer or deeper); the exact mechanism is hard to pin down on the user side.
 - Public reports of "black screens" are **not necessarily the same phenomenon**:
   some accompany full-system freezes, some were screen-batch defects (there is
   at least one "replaced by support, fixed" report). Compare carefully before
   blaming anything.
+
+If you want to investigate this yourself: docs/05 lists the directions already
+explored (injector A/B, power management, USB ports, RGB-suite conflicts, clean
+reinstall, skin origin) — feel free to use them as a starting point.
 
 Full write-up (phenomenon classification, ruled-out causes, the version-skew
 finding, sourced case table, triage order) in
