@@ -199,6 +199,20 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 **★ `minw` / `vm` 与皮肤绑定**：文件里的 `0` 是 **AeeBiCui（博物馆1）的实测适配值**，代码出厂兜底是 `minw:124 / vm:3`，
 文件值优先于代码默认。**换皮肤的人别照抄这两个 0** —— 照抄会拿到零间距，必须按自己的皮肤重新调。
 
+**★ v21 起 `tune.json` 分皮肤**（完整说明见 `docs/02-使用与调参.md`）：
+
+- 结构：`{ "_skin":"auto", "skins": { "<皮肤id>": {...}, ... }, "default": {"_skip":true} }`
+- 皮肤 id / 官方编号 / 根容器 class：`AeeBiCui`（31 / `.AeeCui`）、`DreamMonitoring`（29 / `.DreamMonitoring`）、
+  `FallFlower2`（30 / `.FallFlower2`）
+- 只在 `skins` 里列出的皮肤上改界面；**换皮肤自动撤销全部改动**（含把被隐藏的原生按钮显示回来）。
+- **自定义皮肤 = 独立窗口 `diySkin.html`**，副屏主页面不加载 ⇒ 注入器根本不运行；万一搬进主页面，
+  识别为 `unknown` → 落 `default` → 不动界面。
+- 老 `tune.json`（没有 `skins` 段）= 兼容模式，所有皮肤都改，升级不会让排版突然消失。
+- **★ 这套名字是本机实测，不是官方标准。** 换机器/升级 Myth.Cool 后先跑
+  `skill/tools/probe_skins.py`（只读）：它给出当前皮肤的根容器 class、官方编号、
+  本机装了哪几套（dial 编号），以及 `_skinRules` 骨架。**每套皮肤切过去再跑一次**。
+  认不出来 → `unknown` → 不动界面（安全行为，不是 bug）。
+
 **改坏了一起不算事**：把 `tune.json` 换回默认值，或重启 Myth.Cool 即回原始皮肤。
 
 ## 6. 排查指南：注入后出问题，先看哪里
@@ -216,6 +230,7 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 
 | 症状 | 看哪里 | 常见原因 |
 |---|---|---|
+| **换了皮肤后排版不对（还在改 / 该改没改）** | `inject.log` 的「`皮肤: xxx (官方编号=N, 判据=...)`」那行 | `判据` 含 `modeMismatch` = DOM 与编号打架（以 DOM 为准，但说明官方改了编号）；`配置段=null` = 该皮肤不在 `skins` 白名单 → 已撤销改动（符合预期） |
 | 原生数值照变，新元素不更新 | `inject.log` 版本号 vs 源 `RES.ver` | 改了源没 `-Force` 重注入；或 guard 重入短路（踩坑表 #1） |
 | 改 `tune.json` 完全没反应 | `tune_ack.txt` 是否新增 | BOM 没剥（踩坑表 #3）；或文件没保存 |
 | 元素转 90° / 位置错乱 | `last_result.json` 的 `inJx` / `layerParent` | 浮层挂错父节点（§2） |
@@ -239,6 +254,10 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 | 5 | 注入后**没有任何 tune 推送日志**、热调链路从未武装 | `arm(w)` 被挂在 `executeJavaScript(...).then()` 里，Promise 因页面内异常 reject ⇒ 走 `.catch` ⇒ `arm()` 整个被跳过 | **`arm(w)` 无条件调用**，不挂 `.then`；页面侧自检段**整体包 try** |
 | 6 | 明明注入成功却报"未确认" | `Copy-Item` 覆盖会把目标 mtime 设成**源文件**的 mtime，条件恒 false | 判据改成「日志长度变化 + tail 含成功字样 + 版本号」，**不要用 mtime** |
 | 7 | 元素**方向转 90°** | 浮层挂 body 脱离 `.mainpage_jx` 的 rotate 子树 | **浮层挂 `.mainpage_jx` 内**，`position:absolute` + `100%×100%`（见 §2） |
+| 8 | **换到别的皮肤后，注入的东西还在显示 / 原生按钮被莫名隐藏** | ① 旧版不认皮肤，`hideBtns()` 无差别隐藏 `.icon_box,.appitem`（实测梦境下各 4 个）；② 更隐蔽：页面里**上一版本的闭包仍在**，它通过 Vue `$watch('gpumemload'/'memoryloads')` 活着，传感器一变就把刚删掉的浮层**原地重建** —— 定时器/Observer 能清，这个 watcher 没保存 unwatch 函数，清不掉 | ① 做皮肤识别 + 白名单（v21）；② 撤销时必须 `killLegacyWatchers()`：遍历 `vm._watchers`，只拆 `w.user===true && expOrFn∈{gpumemload,memoryloads}`（`user=true` 才排除 Vue 自己的 render watcher）；③ 在 `refresh()` 开头加 `if (SKIN_SKIP) return;` 作为第二道闸 |
+| 9 | **换了皮肤/切了几次之后就再也不注入了**（第一次切回来有效，多切几次失效） | 切换皮肤会**销毁并重建 mainpage 页面**，renderer 里注入的一切（`__mtc_apply`/CSS/浮层/换肤探测）随之蒸发；而 `Inject.ps1` 按 pid 幂等（pid 没变不重注入）⇒ 页面一重建就永远不再注入。实测铁证：DOM 是 `DIV.AeeCui`/mode=31（识别正确）但 `typeof window.__mtc_apply === 'undefined'` | **守卫必须放在主进程**（它活得过页面重建）：① `app.on('web-contents-created')` + `did-finish-load`（事件驱动零轮询）② 每 10s 查一次 `__mtc_apply` 兜底；发现页面是新的就重新打 PATCH 并立刻补推配置。另外 `Inject.ps1` 的幂等判据要加 `inject_main.py` 的哈希（**不用 mtime**，`Copy-Item` 会带源时间戳） |
+| 10 | **换台机器照抄皮肤名 → 认不出来 → 注入了但没效果** | 内置的 `AeeCui/DreamMonitoring/FallFlower2` + 编号 31/29/30 是**一台 VK03 上实测**的，不是官方标准；官方皮肤会增删、不同设备默认皮肤不同 | 换机器先跑 `skill/tools/probe_skins.py`（只读）拿本机类名与编号，写进 `tune.json` 顶层的 `_skinRules`。**认不出来 = 不动界面（安全行为），不是 bug** |
+| 11 | 拿 `.Dream_box` / `.dial29` 当皮肤判据 → **换皮肤识别错** | `.Dream_box` 是**公共子组件**（梦境和 AeeBiCui 里都有，实测梦境下命中 1）；`.dial29` 是 dial31 在**非 960 高度**时 mainpage 套的外层 `div` | 只用**皮肤根**判据：`.mainpage_jx` 第一个元素子节点的 class（`.AeeCui`/`.DreamMonitoring`/`.FallFlower2`） |
 
 ## 8. 红旗清单（出现即停）
 

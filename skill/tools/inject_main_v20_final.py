@@ -1,6 +1,39 @@
 # -*- coding: utf-8 -*-
 """Myth.Cool 副屏注入 —— 常驻自动版（计划任务用）
 
+v22 变更（2026-09-30）：页面自愈 + 皮肤识别规则可配置
+  G1. ★ 页面自愈守卫（主进程）：切换皮肤会【销毁并重建 mainpage 页面】，renderer 里
+      注入的一切随之蒸发；而 Inject.ps1 按 pid 幂等（pid 没变就不重注入）⇒ 页面一重建
+      就永远不再注入 —— 表现为「第一次切回来有效，多切几次后就再也不注入」。
+      实测铁证：切回 AeeBiCui 后 DOM 是 DIV.AeeCui / mode=31（识别正确），但
+      window.__mtc_apply === 'undefined'、skinTimer=false（代码整个没了）。
+      修：主进程里 ① app.on('web-contents-created') + did-finish-load（事件驱动，零轮询）
+          ② 每 10 秒查一次 __mtc_apply 的兜底轮询。两条都活得过页面重建。
+  G2. 皮肤识别规则可配置：tune.json 顶层 _skinRules = {byClass:{...}, byMode:{...}}。
+      ★ 默认那三套（AeeCui/DreamMonitoring/FallFlower2 + 编号 29/30/31）是【本机实测】，
+        别的机器/别的 Myth.Cool 版本大概率不同 —— 换机器先跑 skill/tools/probe_skins.py
+        探测自己的类名与编号，写进 _skinRules，不要改代码。
+  G3. loadCfg() 内部顺序固定：装 _skinRules -> detectSkin() -> 按皮肤选配置段
+      （顺序反了会拿默认类名去认一套不存在的皮肤）。
+
+v21 变更（2026-09-30）：皮肤识别 + 布局按皮肤绑定
+  S1. 新增 detectSkin()：识别当前皮肤（AeeBiCui「博物馆1」/ DreamMonitoring「梦境」/
+      FallFlower2「洛音」）。判据【实测得出，非猜测】：
+        · 主判据 = .mainpage_jx 的第一个元素子节点的 class（Vue 皮肤组件挂载点）
+          —— 真机探针 2026-09-30：梦境下 = DIV.DreamMonitoring，mode=29
+        · 兜底 = 全文档类名 querySelector
+        · 交叉校验 = localStorage.waterLocal[*].mode（29/30/31），仅用于告警
+      ★ 反例（别踩）：`.Dream_box` 在【梦境和 AeeBiCui 里都有】，不能当判据；
+        `.dial29` 是 dial31 在非 960 高度下的外层包裹 div，也不能当判据。
+  S2. 布局按皮肤生效：tune.json 新增 skins 段，只列在里面的皮肤才改界面。
+      换到其它皮肤 / 自定义皮肤 -> 自动 undoAll() 撤销本工具的全部界面改动。
+      ★ 修掉一个实打实的误伤：旧版 hideBtns() 无差别隐藏 `.icon_box, .appitem`
+        （实测梦境皮肤下各有 4 个），换皮肤后仍在隐藏 —— 属于跨皮肤污染。
+      ★ 兼容：tune.json 没有 skins 段时 = 老行为（所有皮肤都改），升级不会突然失效。
+  S3. 换皮肤检测走【页面内自省】：2.5 秒轮询 + .mainpage_jx childList 观察（非
+      subtree）。成本 = 1~2 次 querySelector，比皮肤自己的 4 秒旋转动画还轻。
+      —— 不走「外部每分钟 attach 探测」那条路（那才真有进程/功耗开销）。
+
 v20 变更（2026-09-30，外部评审采纳项）：
   A1. V8 符号解析失败时显式报 SYM MISS 并退出 3 —— 不再静默失败
       （旧版符号找不到 -> NativeFunction 拿到垃圾 -> agent 中止，每分钟白试无诊断）。
@@ -45,7 +78,7 @@ import time
 
 import frida
 
-VER = 20   # ★ 版本单一来源之一；synchk.py 强制本行与 PATCH 段 RES={v:N}/RES.ver=N 三处同值
+VER = 22   # ★ 版本单一来源之一；synchk.py 强制本行与 PATCH 段 RES={v:N}/RES.ver=N 三处同值
 
 ROOT = r'C:\ProgramData\MythCoolInject'
 LOGD = os.path.join(ROOT, 'log')
@@ -88,7 +121,7 @@ sys.excepthook = _excepthook
 
 PATCH = r'''
 (function () {
-  var LOG = [], RES = { v: 20 };   /* v20: A1 符号显式报错 / A2 日志双值 / B1 宿主拒绝降级 / B2 窗口存活检查；布局逻辑继承 v18 */
+  var LOG = [], RES = { v: 22 };   /* v21: S1 皮肤识别 / S2 布局按皮肤绑定+换肤撤销 / S3 页面内自省探测；v20: A1 符号显式报错 / A2 日志双值 / B1 宿主拒绝降级 / B2 窗口存活检查；布局逻辑继承 v18 */
 
   /* ===== 清掉历史版本残留的样式元素 =====
      ★★★v17 关键修正：原列表里含 '__mtc_layer' 和 '__mtc_v13css' ——
@@ -167,6 +200,193 @@ PATCH = r'''
     } catch (e) { log('layer fail ' + e); return null; }
   }
 
+  /* ============================================================
+     ★v21(S1) 皮肤识别
+     ── 为什么需要：旧版不认皮肤，换到梦境/洛音/自定义皮肤后仍按 AeeBiCui 的排版
+        去改界面。实测（真机探针 2026-09-30，梦境皮肤下）：
+          .icon_box = 4 / .appitem = 4  -> 被 hideBtns() 无差别隐藏（跨皮肤误伤）
+          .ProgressBar.outside.AeeAndCui = 0 -> 新增项建不出来（半残状态）
+        这不是"不生效"，是"生效了一半还弄坏了原生 UI"。
+     ── 判据怎么定的（实测，不是猜）：
+          .mainpage_jx 的第一个元素子节点 = Vue 皮肤组件的挂载点
+            AeeBiCui「博物馆1」 -> DIV.AeeCui          （mode 31）
+            DreamMonitoring「梦境」 -> DIV.DreamMonitoring（mode 29，已实测）
+            FallFlower2「洛音」  -> DIV.FallFlower2     （mode 30）
+     ── ★★ 反例（踩过的坑，别再踩）：
+          · `.Dream_box` —— 梦境和 AeeBiCui 里【都有】，实测梦境下命中 1 个。
+            它是公共子组件，不是皮肤根，拿它当判据必然误判。
+          · `.dial29` —— mainpage 源码里 dial31 在【非 960 高度】时会被包一层
+            `div.dial29`，所以 dial29 这个类名 ≠ 梦境皮肤。
+          · 自定义皮肤：走独立窗口 diySkin.html（mainpage.js 里 0 次引用），
+            mainpage 根本不加载 => 本注入器不会跑。若将来它搬进 mainpage，
+            detectSkin 返回 unknown -> 不在 skins 白名单 -> 不动界面（双保险）。
+     ============================================================ */
+  /* 皮肤识别规则。★ 默认这三套是【本机（VK03）实测】的，别的机器/别的 Myth.Cool
+     版本很可能不一样 —— 换机器请先跑探测脚本（skill/tools/probe_skins.py）拿到
+     自己机器的类名与编号，然后写进 tune.json 顶层的 _skinRules 覆盖，不要改代码：
+       "_skinRules": { "byClass": { "你的皮肤根类名": "你的皮肤id" },
+                       "byMode":  { "31": "AeeBiCui" } }
+     byClass = 根容器 class -> 皮肤 id（主判据）；byMode = 官方编号 -> id（仅告警）。 */
+  var DEFAULT_SKIN_RULES = {
+    byClass: { AeeCui: 'AeeBiCui', DreamMonitoring: 'DreamMonitoring', FallFlower2: 'FallFlower2' },
+    byMode: { 29: 'DreamMonitoring', 30: 'FallFlower2', 31: 'AeeBiCui' }
+  };
+  var SKIN_RULES = DEFAULT_SKIN_RULES;
+  var CUR_SKIN = 'unknown';
+  var SKIN_MODE = null;
+
+  /* 装规则：必须在 detectSkin() 之前调用，否则换机器后仍在用默认的旧类名。 */
+  function applySkinRules() {
+    var T = window.__MTC_TUNE;
+    if (typeof T === 'string') {
+      try { T = JSON.parse(String(T).replace(/^\uFEFF/, '').trim()); } catch (e) { T = null; }
+    }
+    var r = T && T._skinRules;
+    if (r && (r.byClass || r.byMode)) {
+      SKIN_RULES = {
+        byClass: r.byClass || DEFAULT_SKIN_RULES.byClass,
+        byMode: r.byMode || DEFAULT_SKIN_RULES.byMode
+      };
+      return true;
+    }
+    SKIN_RULES = DEFAULT_SKIN_RULES;
+    return false;
+  }
+
+  function detectSkin() {
+    var id = 'unknown', how = 'none', c, cl, i, kk;
+    /* 1) 主判据：.mainpage_jx 的第一个元素子节点（皮肤组件挂载点） */
+    try {
+      var jx = document.querySelector('.mainpage_jx') || document.querySelector('.mainpage_jx1');
+      c = jx ? jx.children[0] : null;
+      if (c && c.className) {
+        cl = String(c.className).split(/\s+/);
+        for (i = 0; i < cl.length; i++) {
+          if (SKIN_RULES.byClass[cl[i]] !== undefined) { id = SKIN_RULES.byClass[cl[i]]; how = 'root'; break; }
+        }
+      }
+    } catch (e) {}
+    /* 2) 兜底：全文档类名（宿主结构变了也能认出来） */
+    if (id === 'unknown') {
+      for (kk in SKIN_RULES.byClass) {
+        try { if (document.querySelector('.' + kk)) { id = SKIN_RULES.byClass[kk]; how = 'doc'; break; } } catch (e2) {}
+      }
+    }
+    /* 3) 编号交叉校验：只用于告警，不推翻 DOM 判据 */
+    SKIN_MODE = null;
+    try {
+      var wl = JSON.parse(localStorage.getItem('waterLocal') || '{}');
+      for (var k in wl) { if (wl[k] && wl[k].mode !== undefined) SKIN_MODE = wl[k].mode; }
+    } catch (e3) {}
+    var byMode = SKIN_RULES.byMode[SKIN_MODE] || null;
+    if (byMode && byMode !== id) how = how + '+modeMismatch(mode' + SKIN_MODE + '=' + byMode + ')';
+    CUR_SKIN = id;
+    RES.skin = { id: id, mode: SKIN_MODE, how: how, modeName: byMode,
+                 known: id !== 'unknown' };
+    return id;
+  }
+
+  /* ★v21(S2)：撤销本工具对界面做过的【全部】改动。
+     换到白名单外的皮肤（含自定义皮肤）时必须跑，否则会留下一具"半改过的界面"。
+     幂等：重复调用无害。 */
+  function undoAll() {
+    var n = 0, i, e;
+    try {
+      var s = document.getElementById('__mtc_v13css');
+      if (s && s.parentNode) { s.parentNode.removeChild(s); n++; }
+    } catch (e1) {}
+    try {
+      var L = document.getElementById('__mtc_layer');
+      if (L && L.parentNode) { L.parentNode.removeChild(L); n++; }   /* 新增项都在它里面 */
+    } catch (e2) {}
+    try {
+      if (window.__mtc_v13timer) { clearInterval(window.__mtc_v13timer); window.__mtc_v13timer = null; n++; }
+    } catch (e3) {}
+    try {
+      if (window.__mtc_mo) { window.__mtc_mo.disconnect(); window.__mtc_mo = null; n++; }
+    } catch (e4) {}
+    try {
+      /* ★ 关键：把 hideBtns() 隐藏掉的原生按钮显示回来 */
+      var b = document.querySelectorAll('.icon_box, .appitem');
+      for (i = 0; i < b.length; i++) if (b[i].style.display === 'none') { b[i].style.display = ''; n++; }
+    } catch (e5) {}
+    try {
+      var m = document.querySelectorAll('[data-mtc]');
+      for (i = 0; i < m.length; i++) if (m[i].parentNode) { m[i].parentNode.removeChild(m[i]); n++; }
+    } catch (e6) {}
+    n += killLegacyWatchers();
+    if (n) log('undoAll removed ' + n);
+    return n;
+  }
+
+  /* ★★★v21 关键：拆掉【上一版本留在页面里的】Vue 观察者。
+     为什么必须做：升级到 v21 时，页面里还驻留着 v20 那个 IIFE 的闭包。它的复活通路有三条：
+       ① window.__mtc_v13timer（setInterval）  -> undoAll 已 clear ✓
+       ② window.__mtc_mo（MutationObserver）   -> undoAll 已 disconnect ✓
+       ③ vm.$watch('gpumemload'/'memoryloads') -> 【清不掉，因为没保存 unwatch 函数】✗
+     第 ③ 条是活的：传感器值一变就调 v20 的 refresh() -> build() -> 把刚删掉的
+     浮层和 4 个新增项【原地重建】。这正是"换到梦境皮肤，注入的东西还在显示"的根因。
+     拆法：遍历 vm._watchers，只拆 w.user===true（$watch 创建的，不含 Vue 自己的
+     render watcher）且 expOrFn 恰好是我们那两个字段的。绝不碰官方自己的观察者。 */
+  function killLegacyWatchers() {
+    try {
+      var vm = findVmOnce('gpumemload');
+      if (!vm || !vm._watchers) return 0;
+      var n = 0;
+      for (var i = vm._watchers.length - 1; i >= 0; i--) {
+        var w = vm._watchers[i];
+        if (!w || w.user !== true) continue;
+        if (w.expOrFn === 'gpumemload' || w.expOrFn === 'memoryloads') {
+          try { w.teardown(); n++; } catch (e) {}
+        }
+      }
+      /* 清掉 v20 的"已挂过"守卫 —— 换回白名单皮肤时让 v21 能重新挂上
+         自己那个带皮肤判断的 watcher（见 refresh 开头的 SKIP 闸）。 */
+      try { vm.__mtc_v13hooked = false; vm.__mtc_hooked = false; } catch (e2) {}
+      if (n) log('legacy watchers torn down: ' + n);
+      return n;
+    } catch (e3) { return 0; }
+  }
+
+  /* ★v21(S3)：换皮肤检测 —— 全部在【页面内】完成。
+     用户担心功耗：这里的成本是每 2.5 秒 1 次 querySelector（微秒级），
+     比皮肤自己 4 秒一轮的旋转动画还轻；而且【不新增任何进程、不反复 attach】
+     —— 那条"每分钟跑脚本探测"的路我们没走。 */
+  var __mtc_skinLast = 0;
+  function skinWatch() {
+    if (window.__mtc_skinTimer) return;
+    window.__mtc_skinTimer = setInterval(function () {
+      try {
+        var prev = CUR_SKIN;
+        detectSkin();
+        if (CUR_SKIN !== prev) { log('SKIN CHANGE: ' + prev + ' -> ' + CUR_SKIN); reapplySkin(); }
+      } catch (e) {}
+    }, 2500);
+    /* 事件兜底：盯 .mainpage_jx 的【直接】子节点增删（换 dial 组件时会变）。
+       刻意不开 subtree —— 传感器每 1 秒刷文本会把它变成噪声源。 */
+    try {
+      var jx = document.querySelector('.mainpage_jx') || document.querySelector('.mainpage_jx1');
+      if (jx && window.MutationObserver) {
+        var mo2 = new MutationObserver(function () {
+          try {
+            var now = (window.performance && performance.now) ? performance.now() : Date.now();
+            if (now - __mtc_skinLast < 800) return;    /* 防重入：applyAll 自身会改 DOM */
+            __mtc_skinLast = now;
+            var prev = CUR_SKIN;
+            detectSkin();
+            if (CUR_SKIN !== prev) { log('SKIN CHANGE(mo): ' + prev + ' -> ' + CUR_SKIN); reapplySkin(); }
+          } catch (e2) {}
+        });
+        mo2.observe(jx, { childList: true });
+        window.__mtc_skinMo = mo2;
+      }
+    } catch (e3) {}
+  }
+  function reapplySkin() {
+    __mtc_skinLast = (window.performance && performance.now) ? performance.now() : Date.now();
+    try { applyAll(); } catch (e) { log('reapply ' + e); }
+  }
+
   /* ★ 默认值 = 用户已确认的定稿排版
        refresh_ms: 新增 5 项的自带节拍。真实行为：DEF 4000；tune.json 传 <3500 的值
                    会被 v15 保险丝抬到 3500（除非 _allow_fast_tick:true）——
@@ -179,6 +399,10 @@ PATCH = r'''
     css: '', refresh_ms: 4000   /* v14: 3000->4000 错开原生节拍 */
   };
   var CFG = {};
+  /* ★v21(S2)：本轮是否跳过（不在皮肤白名单 -> 不改界面） */
+  var SKIN_SKIP = false;
+  /* 顺序不能反：先装识别规则（可能来自 tune.json 的 _skinRules），再识别皮肤，
+     最后才按皮肤选配置段 —— 否则换机器后会拿着默认类名去认一套不存在的皮肤。 */
   function loadCfg() {
     var k;
     for (k in DEF) CFG[k] = DEF[k];
@@ -190,8 +414,41 @@ PATCH = r'''
         try { T = JSON.parse(String(T).replace(/^\uFEFF/, '').trim()); }
         catch (e) { T = null; }
       }
-      if (T) for (k in DEF) if (T[k] !== undefined && T[k] !== null) CFG[k] = T[k];
     }
+    /* ── 分皮肤配置段（v21）─────────────────────────────────────────
+       tune.json 形态：
+         { "_skin": "auto",
+           "skins": { "AeeBiCui": {ix:169, ...}, "DreamMonitoring": {"_skip": true} },
+           "default": { "_skip": true } }
+       规则：
+         · 有 skins 段  -> 绑定模式：只有命中的那一套才改界面；
+                          命中不到（含自定义/unknown）-> SKIP + undoAll()
+         · 没有 skins 段 -> 老行为：所有皮肤都改（兼容已部署的旧 tune.json）
+                          —— 升级到 v21 不会让用户的排版突然消失。 */
+    RES.rulesCustom = applySkinRules();   /* ★ 换机器/官方新增皮肤时的覆盖点 */
+    detectSkin();
+    var prof = null, profName = null;
+    SKIN_SKIP = false;
+    if (T && T.skins) {
+      var want = (T._skin && T._skin !== 'auto') ? T._skin : CUR_SKIN;
+      prof = T.skins[want];
+      if (prof) {
+        profName = want;
+      } else {
+        prof = T.default;                 /* 没命中 -> 看 default 段 */
+        profName = prof ? 'default' : null;
+      }
+      if (!prof) {
+        SKIN_SKIP = true;                 /* 绑定模式下没匹配到任何段 -> 不动界面 */
+      } else if (prof._skip) {
+        SKIN_SKIP = true;                 /* 显式声明跳过（如：自定义皮肤不动） */
+      }
+    }
+    var src = prof || ((T && T.skins) ? null : T);
+    if (src) for (k in DEF) if (src[k] !== undefined && src[k] !== null) CFG[k] = src[k];
+    RES.skinCfg = { profile: profName, skip: SKIN_SKIP,
+                    bound: !!(T && T.skins), want: (T && T.skins)
+                      ? ((T._skin && T._skin !== 'auto') ? T._skin + '(forced)' : CUR_SKIN) : null };
     /* ★v15 保险丝(B)：refresh_ms 下限保护。
        背景：hotpush 失败时 window.__MTC_TUNE 会残留【上一次注入】的旧值
        （实测 12:04 那次重注入就是残留了 11:51 的 3000），把 DEF 的 4000 覆盖掉。
@@ -201,7 +458,8 @@ PATCH = r'''
        tune.json 的 _allow_fast_tick = true 放行（默认不给）。 */
     var _rms = parseInt(CFG.refresh_ms, 10);
     if (!_rms || _rms < 200) _rms = 4000;
-    var _allowFast = !!(T && T._allow_fast_tick);
+    /* _allow_fast_tick 可能写在皮肤段里，也可能留在顶层 —— 两处都认 */
+    var _allowFast = !!((src && src._allow_fast_tick) || (T && T._allow_fast_tick));
     if (!_allowFast && _rms < 3500) { CFG._rmClamped = true; _rms = 3500; }
     CFG.refresh_ms = _rms;
     RES.cfg = { ix: CFG.ix, iy: CFG.iy, idy: CFG.idy, minw: CFG.minw, vm: CFG.vm,
@@ -433,6 +691,10 @@ PATCH = r'''
   /* ===== ★ 统一刷新入口：数字/电压(fixRows) 与 3 项(build) 必须一起走 ===== */
   var lastRefresh = 0;
   function refresh(src) {
+    /* ★v21(S2) 第二道闸：即使在白名单外的皮肤上被【任何旧通路】叫醒（旧版 Vue
+       watcher / 残留定时器 / 手工调 __mtc_refresh），也不许再往界面上写东西。
+       undoAll() 负责拆掉旧通路，这里负责拦住没拆干净的漏网之鱼 —— 双保险。 */
+    if (SKIN_SKIP) { return; }
     var now = Date.now();
     if (now - lastRefresh < 200) { return; }   /* v14: 80->200 抗MO连击 */
     lastRefresh = now;
@@ -544,7 +806,24 @@ PATCH = r'''
        热调（tune.json 变）会走 pushTune -> __mtc_apply() -> 这里。
        若这个数在运行期持续增长，说明热调链路在反复触发 —— 那就是闪的直接来源。 */
     RES.applyN = (RES.applyN || 0) + 1;
-    loadCfg(); instCSS(); hideBtns(); ensureLayer(); refresh('apply'); startTick(); hookUpdates(); watchDom();
+    loadCfg();   /* 内部顺序：装 _skinRules -> detectSkin() -> 按皮肤选配置段 */
+    /* ★v21(S2)：不在白名单（换皮肤了 / 自定义皮肤）-> 撤销全部改动，只留探测。
+       必须保留 skinWatch()，否则换回 AeeBiCui 时不会自动恢复排版。 */
+    if (SKIN_SKIP) {
+      RES.skipped = (RES.skipped || 0) + 1;
+      /* 跳过时 CFG 停在出厂默认值（没有皮肤段喂它），直接打出来会被误读成
+         "排版被重置了"。显式标 applied:false，并把 cfg 折叠成一行说明。 */
+      RES.applied = false;
+      RES.cfg = { skippedFor: CUR_SKIN, note: '本皮肤不在白名单，CFG 未应用到界面' };
+      log('SKIN SKIP: ' + CUR_SKIN + ' 不在注入白名单 -> 已撤销本工具的全部界面改动');
+      undoAll();
+      skinWatch();
+      return RES;
+    }
+    RES.applied = true;
+    instCSS(); hideBtns(); ensureLayer(); refresh('apply'); startTick(); hookUpdates(); watchDom();
+    skinWatch();
+    return RES;
   }
   window.__mtc_apply = function () { try { applyAll(); } catch (e) { log('apply ' + e); } return RES; };
 
@@ -616,7 +895,7 @@ PATCH = r'''
       domObserver: !!window.__mtc_mo
     };
   } catch (e) { RES.hooks = { err: String(e) }; log('hooks ' + e); }
-  RES.ver = 20;
+  RES.ver = 22;
   /* ★★★v17 诊断：验证浮层是否真的落在 .mainpage_jx 的旋转坐标系里。
      判据（v16 的实测值作对照）：
        v16 错态：layerParent=BODY, layerPos=fixed, layerInsideJx=false,
@@ -678,9 +957,40 @@ PATCH = r'''
   /* ★v15 最后一道闸：即使前面有任何未捕获异常，也保证 return 一个合法 JSON，
      绝不让 PATCHCODE 的 Promise reject —— arm() 已经提到 .then 外面，
      但这里再多一层，做到「注入必达、配置必推」。 */
-  var _out = '';
-  try { _out = JSON.stringify(RES); } catch (e) { _out = '{"v":15,"jsonErr":"' + String(e).replace(/"/g, "'") + '"}'; }
-  return _out;
+  function _finalize() {
+    var o = '';
+    try { o = JSON.stringify(RES); } catch (e) { o = '{"v":15,"jsonErr":"' + String(e).replace(/"/g, "'") + '"}'; }
+    return o;
+  }
+  /* ★★v22：等配置到位再返回结果，别让首帧快照骗人。
+     病：MAIN 里是「先 executeJavaScript(PATCHCODE)，再 arm() -> pushTune()」。
+     若 PATCHCODE 先落地，它跑 applyAll() 时 window.__MTC_TUNE 还没送到，
+     于是返回的 RES 全是【出厂默认值】—— 日志上就是
+       "cssLen=0 / 配置段=None / 绑定模式=False"
+     看着像「皮肤没认出来、配置没生效」，其实界面随后被 pushTune 那次
+     __mtc_apply 改对了，只是【这份快照】是旧的。新页面/重建后的页面尤其明显。
+     修：返回前先等 __MTC_TUNE（最多 2.5 秒）；等到后若发现当前 RES 仍没吃到
+     配置（pushTune 那次 apply 可能早于 __mtc_apply 定义），补跑一次 applyAll。
+     等不到也照常返回，绝不阻塞注入。 */
+  if (!window.__MTC_TUNE) {
+    return new Promise(function (resolve) {
+      var _t0 = Date.now();
+      (function wait() {
+        if (window.__MTC_TUNE || (Date.now() - _t0) > 2500) {
+          try {
+            if (window.__MTC_TUNE && !(RES.cfg && RES.cfg.tuneSrc)) {
+              log('post-tune re-apply (tune arrived after first applyAll)');
+              applyAll();
+            }
+          } catch (e) { log('postTuneApply ' + e); }
+          resolve(_finalize());
+          return;
+        }
+        setTimeout(wait, 50);
+      })();
+    });
+  }
+  return _finalize();
 })();
 '''
 
@@ -776,9 +1086,24 @@ MAIN = r'''
         last = c0; pushTune(c0);
         /* ★v20(A2/A3)：只打【文件原值】，生效值看 push ack 的 rms(生效)；
            tick 参数已删（它从不在 DEF 里，是从未生效过的死参数） */
-        step('initial tune push sent rms(文件)=' + _o.refresh_ms +
-             (_o._allow_fast_tick ? ' [fast]' : ' [将clamp到>=3500]') +
-             ' cssLen=' + String(_o.css || '').length);
+        /* ★v21：tune.json 改成分皮肤结构后，refresh_ms / css 不在顶层了。
+           旧写法会打出 "rms(文件)=undefined cssLen=0" —— 看起来像推送失败，
+           其实只是取值位置变了（这正是 v20 A2 那条"日志不许骗人"要防的东西）。
+           skins 模式下改打【各皮肤段】的摘要，页面按识别结果选段后生效。 */
+        if (_o.skins) {
+          var segs = [], sk;
+          for (sk in _o.skins) {
+            var sg = _o.skins[sk] || {};
+            segs.push(sk + (sg._skip ? '(skip)' :
+              '[rms=' + sg.refresh_ms + ',css=' + String(sg.css || '').length + ']'));
+          }
+          step('initial tune push sent [skins 段模式] _skin=' + String(_o._skin || 'auto') +
+               ' 段: ' + segs.join(' | ') + ' -> 由页面按当前皮肤选段');
+        } else {
+          step('initial tune push sent [兼容模式/无 skins 段] rms(文件)=' + _o.refresh_ms +
+               (_o._allow_fast_tick ? ' [fast]' : ' [将clamp到>=3500]') +
+               ' cssLen=' + String(_o.css || '').length);
+        }
       } else {
         step('initial tune push skip: 解析失败（BOM? 语法错?）rawLen=' + (t0 ? t0.length : 0));
       }
@@ -835,6 +1160,79 @@ MAIN = r'''
        （watchFile 注册前先看 last，不改文件不会重复推）。 */
     try { arm(w); } catch (e) { step('arm fail: ' + e); }
   }
+
+  /* ★★★v22 页面自愈守卫 —— 必须放在【主进程】，因为它活得过页面重建。
+     病（2026-09-30 实测）：切换皮肤（尤其切到自定义皮肤）会【销毁并重建 mainpage
+     页面】，renderer 里我们注入的一切（CSS / 浮层 / 定时器 / 换肤探测）随之蒸发。
+     而 Inject.ps1 是按 pid 幂等的（pid 没变就不重新注入）⇒ 页面一重建就永远不再注入。
+       实测证据：切回 AeeBiCui 后 DOM 是 DIV.AeeCui、mode=31（皮肤识别正确），
+       但 window.__mtc_apply === 'undefined'、skinTimer=false —— 代码整个没了。
+       表现就是用户看到的「第一次切回来有效，多切几次之后就再也不注入了」。
+     修：① 事件驱动 —— app.on('web-contents-created') + did-finish-load（零轮询）
+         ② 兜底 —— 每 10 秒查一次 window.__mtc_apply 还在不在（事件拿不到时的保险）
+     两条都跑在主进程，页面怎么重建都拦得住。 */
+  function isAlive(x) { try { return !!x && !x.isDestroyed(); } catch (e) { return false; } }
+  function shim(wc) {
+    return { isDestroyed: function () { try { return wc.isDestroyed(); } catch (e) { return true; } },
+             webContents: wc };
+  }
+  function repatch(w2, why) {
+    if (!isAlive(w2)) return;
+    try {
+      w2.webContents.executeJavaScript(PATCHCODE).then(function (r) {
+        var v = '?';
+        try { v = JSON.parse(String(r)).v; } catch (e) {}
+        step('re-patch ok (' + why + ') v=' + v);
+        /* 补丁后立刻补推一次配置，让排版马上回来，不用等下一次热调 */
+        try {
+          var t = fs.readFileSync(TUNEPATH, 'utf8');
+          var c = cleanJson(t);
+          if (c) { last = c; pushTune(c); }
+        } catch (e) {}
+      }).catch(function (e) { step('re-patch fail (' + why + '): ' + e); });
+    } catch (e) { step('re-patch throw (' + why + '): ' + e); }
+  }
+  function guard() {
+    var evArmed = false;
+    try {
+      var app = electron.app || (electron.default && electron.default.app);
+      if (app && app.on) {
+        app.on('web-contents-created', function (ev, wc) {
+          try {
+            wc.on('did-finish-load', function () {
+              setTimeout(function () {
+                var u = ''; try { u = wc.getURL(); } catch (e) {}
+                if (u.indexOf('mainpage.html') === -1) return;
+                var w2 = shim(wc);
+                if (!isAlive(w2)) return;
+                try {
+                  wc.executeJavaScript('(function(){return typeof window.__mtc_apply;})()')
+                    .then(function (t) { if (t !== 'function') repatch(w2, 'did-finish-load'); })
+                    .catch(function () {});
+                } catch (e) {}
+              }, 1200);
+            });
+          } catch (e) {}
+        });
+        evArmed = true;
+        step('page guard: web-contents-created armed');
+      }
+    } catch (e) { step('page guard event fail: ' + e); }
+    try {
+      setInterval(function () {
+        var w2 = findW();
+        if (!isAlive(w2)) return;
+        try {
+          w2.webContents.executeJavaScript('(function(){return typeof window.__mtc_apply;})()')
+            .then(function (t) { if (t !== 'function') repatch(w2, 'watchdog'); })
+            .catch(function () {});
+        } catch (e) {}
+      }, 10000);
+      step('page guard: watchdog armed (10s)' + (evArmed ? '' : ' [app 事件不可用，仅靠轮询]'));
+    } catch (e) { step('page guard watchdog fail: ' + e); }
+  }
+
+  guard();
   loop();
   return 'ok';
 })();
@@ -1030,6 +1428,18 @@ for pid in cands:
                     plog('  参数: %s' % json.dumps(j.get('cfg'), ensure_ascii=False))
                     plog('  钩子: %s | 清掉残留样式 %s 个'
                          % (json.dumps(j.get('hooks'), ensure_ascii=False), j.get('cleaned')))
+                    # ★v21：皮肤识别结果 —— 换皮肤后第一件事就是看这一行
+                    _sk = j.get('skin') or {}
+                    _sc = j.get('skinCfg') or {}
+                    plog('  皮肤: %s (官方编号=%s, 判据=%s) | 配置段=%s | 绑定模式=%s'
+                         % (_sk.get('id'), _sk.get('mode'), _sk.get('how'),
+                            _sc.get('profile'), _sc.get('bound')))
+                    if _sc.get('skip'):
+                        plog('  !! 该皮肤不在注入白名单 -> 已撤销全部界面改动，本次未改排版')
+                    if _sk.get('how') and 'modeMismatch' in str(_sk.get('how')):
+                        plog('  ?? DOM 判据与官方编号不一致（判据=%s，编号=%s=%s）—— 以 DOM 为准，'
+                             '但若长期不一致说明官方改了皮肤编号，需更新 SKIN_BY_MODE'
+                             % (_sk.get('id'), _sk.get('mode'), _sk.get('modeName')))
                     for c in j.get('check') or []:
                         plog('    [%s %s] 标签->数字=%spx 数字->电压=%spx | 字号 标签%s/数字%s/电压%s'
                              % (c.get('label'), c.get('num'), c.get('gapLabelNum'),

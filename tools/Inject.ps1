@@ -26,11 +26,27 @@
 param([switch]$Force, [switch]$Probe)
 
 $ROOT   = $PSScriptRoot
-$PY     = Join-Path $ROOT 'venv\Scripts\python.exe'
 $MAIN   = Join-Path $ROOT 'inject_main.py'
+# v22: DO NOT hard-code the private python path.
+#   Setup-Runtime.ps1 creates <ROOT>\venv\Scripts\python.exe when it can build a
+#   venv, but on machines without a base python on PATH it falls back to an
+#   embedded runtime at <ROOT>\python\python.exe. Either one alone breaks the
+#   other machine -- resolve at runtime, and fail loudly (with the tried list)
+#   if none of them exists. Found for real on 2026-09-30: a hard-coded 'venv'
+#   path turned into "FATAL missing python" and killed injection completely.
+$PY = ''
+$PYCAND = @((Join-Path $ROOT 'venv\Scripts\python.exe'),
+            (Join-Path $ROOT 'python\python.exe'),
+            (Join-Path $ROOT 'python\Scripts\python.exe'))
+foreach ($c in $PYCAND) { if (Test-Path -LiteralPath $c) { $PY = $c; break } }
+if (-not $PY) {
+    $sys = Get-Command python.exe -ErrorAction SilentlyContinue
+    if ($sys) { $PY = $sys.Source }
+}
 $LOGD   = Join-Path $ROOT 'log'
 $STATED = Join-Path $ROOT 'state'
 $STATE  = Join-Path $STATED 'last_pid.txt'
+$HASHF  = Join-Path $STATED 'last_hash.txt'
 $LOG    = Join-Path $LOGD 'inject.log'
 
 foreach ($d in @($LOGD, $STATED)) {
@@ -63,6 +79,20 @@ function ReadState() {
     return 'NONE'
 }
 
+function ReadHash() {
+    if (Test-Path -LiteralPath $HASHF) {
+        try {
+            $v = (Get-Content -LiteralPath $HASHF -Raw -ErrorAction Stop).Trim()
+            if ($v) { return $v }
+        } catch {}
+    }
+    return ''
+}
+
+function WriteHash([string]$v) {
+    try { Set-Content -LiteralPath $HASHF -Value $v -Encoding ASCII -NoNewline -ErrorAction Stop } catch {}
+}
+
 function WriteState([string]$v) {
     try {
         Set-Content -LiteralPath $STATE -Value $v -Encoding ASCII -NoNewline -ErrorAction Stop
@@ -71,9 +101,16 @@ function WriteState([string]$v) {
     }
 }
 
+#  v21: the fast path must NOT key on pid alone. If inject_main.py is updated
+#  while Myth.Cool keeps the same pid, "pid == state" silently skips forever and
+#  the new code never reaches the page (hit for real on 2026-09-30: v21 deployed
+#  at 04:50, scheduled task kept exiting at the fast path, page stayed on v20).
+#  => also compare a hash of inject_main.py. Do NOT use mtime: Copy-Item can
+#     carry the source's timestamp over, making the test a lie.
+#
 # ---------- 0) sanity ----------
-if (-not (Test-Path -LiteralPath $PY)) {
-    Log ('FATAL missing python: ' + $PY + '  -> run Install.bat first')
+if (-not $PY) {
+    Log ('FATAL missing python. tried: ' + ($PYCAND -join ' , ') + ' and PATH python.exe -> run Install.bat first')
     exit 3
 }
 if (-not (Test-Path -LiteralPath $MAIN)) {
@@ -136,8 +173,14 @@ if ($Probe) {
 # SYMFAIL:<pid> = last attempt hit missing V8 symbols (version skew). Retry is
 # pointless for the SAME pid; a new pid (Myth.Cool restarted) gets one fresh
 # attempt automatically. -Force overrides.
-if ((-not $Force) -and ($last -like 'SYMFAIL:*') -and ($cur -eq ($last -replace '^SYMFAIL:', ''))) { exit 0 }
-if ((-not $Force) -and ($cur -eq $last)) { exit 0 }
+# v21: hash of the injector itself -- catches "code updated, pid unchanged".
+$hash = ''
+try { $hash = (Get-FileHash -LiteralPath $MAIN -Algorithm SHA256 -ErrorAction Stop).Hash } catch { $hash = '' }
+$lastHash = ReadHash
+$codeChanged = ($hash -ne '') -and ($hash -ne $lastHash)
+
+if ((-not $Force) -and ($last -like 'SYMFAIL:*') -and ($cur -eq ($last -replace '^SYMFAIL:', '')) -and (-not $codeChanged)) { exit 0 }
+if ((-not $Force) -and ($cur -eq $last) -and (-not $codeChanged)) { exit 0 }
 
 $started = ''
 try { $started = (Get-Process -Id $mainPid -ErrorAction Stop).StartTime.ToString('yyyy-MM-dd HH:mm:ss') } catch {}
@@ -147,7 +190,8 @@ if ($last -eq 'NONE') {
 } elseif ($last -like 'SYMFAIL:*') {
     Log ('MythCool restarted after symbol failure (' + $last + ' -> pid=' + $cur + ' started=' + $started + ' procs=' + $rawCount + ') -> one fresh attempt')
 } elseif ($last -eq $cur) {
-    Log ('same instance pid=' + $cur + ' but -Force given -> re-injecting')
+    if ($codeChanged) { Log ('injector code changed (hash ' + $lastHash + ' -> ' + $hash + ') -> re-injecting same pid=' + $cur) }
+    else { Log ('same instance pid=' + $cur + ' but -Force given -> re-injecting') }
 } else {
     Log ('MythCool restarted ' + $last + ' -> ' + $cur + ' started=' + $started + ' procs=' + $rawCount + ' -> injecting')
 }
@@ -172,6 +216,7 @@ $sec = [int]((Get-Date) - $t0).TotalSeconds
 # ---------- 4) record only on success ----------
 if ($rc -eq 0) {
     WriteState $cur
+    if ($hash -ne '') { WriteHash $hash }
     Log ('inject OK pid=' + $cur + ' in ' + $sec + 's -> booked')
     exit 0
 } elseif ($rc -eq 2) {

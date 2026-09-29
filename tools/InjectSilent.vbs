@@ -15,16 +15,19 @@
 '
 '  2) CHEAP FAST PATH.
 '     Starting powershell.exe costs ~370 ms by itself. This script performs
-'     the same pid comparison in plain VBScript first (one WMI query plus one
-'     small text file). If the pid has not changed there is nothing to do and
 '     we exit in ~120 ms without ever starting PowerShell.
 '
-'  SAFETY - the fast path can only ever SKIP work when it is certain:
-'    * MythCool is not running AND the state file already says NONE, or
-'    * the main pid equals the pid recorded in the state file.
+'  SAFETY - the only skip left can never hide any work:
+'    * MythCool is not running AND the state file already says NONE.
 '  Anything else - WMI error, unreadable state file, pid changed, MythCool
 '  started, state file missing - falls through to Inject.ps1, which holds the
-'  full logic and does all the logging.
+'  full logic (including the pid + injector-hash fast path) and all logging.
+'
+'  v22 - an earlier version ALSO skipped when "pid = last". That silently hid
+'  every injector update: replacing inject_main.py does not change the pid, so
+'  this script returned 0 and PowerShell never ran (2026-09-30: v22 deployed,
+'  task reporting result 0 every minute, new code never reached the page).
+'  Do NOT bring that test back - correctness beats the ~250 ms it saved.
 '
 '  Run(cmd, 0, True): 0 = hidden window; True = wait, so the task stays in
 '  "Running" state for its whole duration (keeps IgnoreNew and
@@ -89,10 +92,19 @@ If Err.Number = 0 Then
     End If
 End If
 
-' ---------- 3) fast path: nothing to do ----------
+' ---------- 3) fast path ----------
+' v22 CHANGE -- the "pid = last -> quit" test is GONE.
+'   It silently blocked EVERY injector update: replacing inject_main.py does not
+'   change the Myth.Cool pid, so this script quit with 0 and PowerShell (which
+'   owns the real logic) never started. Hit for real on 2026-09-30: v22 was
+'   deployed, the task kept reporting result 0 every minute, and the new code
+'   never reached the page.
+'   Correctness beats the ~250 ms this saved -- the pid/hash fast path now lives
+'   in Inject.ps1 only, where it can also see whether the injector changed.
+'   The only remaining skip here is "MythCool not running and already noted",
+'   which cannot hide any work.
 If Err.Number = 0 Then
     If pid = "" And last = "NONE" Then WScript.Quit 0     ' not running, already noted
-    If pid <> "" And pid = last Then WScript.Quit 0       ' already patched
 End If
 
 ' ---------- 4) anything else: let PowerShell do the real work ----------
