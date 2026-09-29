@@ -71,7 +71,18 @@ Inject.ps1  ──挑出主进程 pid──▶  inject_main.py
 
 **主进程判定**：`Inject.ps1` 用「父进程不在 MythCool 集合里」挑真正的主进程（Electron 派生一堆同启动时间的 `--type=gpu-process`，非提权读不到 CommandLine，按时间排序分不出来）。
 
-**定稿源**：`tools/inject_main_v19_final.py`（`RES = { v: 19 }`）。改代码只改这个文件；文件名里的版本号可能落后于内部 `RES.ver`，**以 `grep "RES.ver = "` 为准**。
+**定稿源**：`tools/inject_main_v20_final.py`（`RES = { v: 20 }`）。改代码只改这个文件。
+**版本号三处同值**（Python 头 `VER = N` / `RES = { v: N }` / `RES.ver = N`），synchk 强制断言，漏改一处直接 FAIL。
+
+### ★ v20 变更（2026-09-30，外部评审采纳）
+
+| 项 | 内容 |
+|---|---|
+| **A1 符号显式报错** | V8 mangled 符号（`?GetCurrent@Isolate@v8@@...`，与 Electron/V8 版本强耦合）找不到时：日志报 `SYM MISS` + `last_result.json` 写 `symMiss: true` + **exit 3**。旧版静默失败无诊断。**官方软件更新后的第一失效点**，自检步骤见仓库 README「版本升级自检」 |
+| **A2 日志双值** | `initial tune push sent rms(文件)=N [将clamp到>=3500]` 与 `push ack: rms(生效)=N [原值被抬到3500]` —— 不再只有一个会骗人的数 |
+| **A3 删 tick 死参数** | `tick` 从不在 DEF 里，从未生效过；docs/02 旧说法已纠错 |
+| **B1 宿主拒绝降级** | `layerHost()` 找不到 `.mainpage_jx`/`.mainpage_jx1` 时不再静默挂进非旋转宿主（`.mainAll`/`.mainpage`/body，方向全错），改为 `RES.warn = 'hostFallbackBlocked'` + 拒绝挂载 |
+| **B2 窗口存活检查** | `pushTune` 前查 `W.isDestroyed()`，坏了重跑 `findW()` —— 重插屏/分辨率切换后热调不再打在死窗口上 |
 
 ## 2. ★★ 坐标系 —— 最容易翻车的地方
 
@@ -117,9 +128,12 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 | `gen_install.py` | **从模板生成某一版装机脚本**（保证纯 ASCII + CRLF + CONFIG 正确，并自动跑 trap audit）；新增版本只需往脚本里的 `NOTES` 字典加一条 | `<python> "<本文件>" <VER> [TAG] [SRC] [DST]` | 否 |
 | `verify_markers.ps1` | UTF-8 安全的标记校验器，**取代 findstr**。`-Neg` 跑反向断言。退出码 0=全绿 / 1=缺必需 / 2=有违禁 / 3=文件不存在 | `powershell -File "<本文件>" -Path <源> -Ver <VER> [-Neg]` | 否 |
 | `cmdcheck.py` | **交付 .cmd 前的强制校验器**：转 CRLF + 断言纯 ASCII / 零裸 LF / 所有 goto·call 目标存在 / 括号配平 / 无被延迟展开吃掉的裸 `!` | `<python> cmdcheck.py FILE.cmd [FILE2 ...] [--no-write]` | 否 |
-| `Finalize_v19.cmd` | **一键定稿包（清场 + 部署 v19 + 重注入）**：管理员终端跑一次即可。自带管理员自检 + preflight，**任何失败都不改盘** | `"<本文件>"`（**管理员终端**） | **是** |
+| `Finalize_v19.cmd` | **v19 存档**（已被 v20 取代） | — | **是** |
+| `Finalize_v20.cmd` | **★★★ 一键定稿包（清场 + 部署 v20 + 重注入）**：管理员终端跑一次。回退点自动升级为 `bak_v19`（从 v19 存档快照，bak_v17 保留作深回退）；验收两项：log 无 `SYM MISS`（用 logscan.ps1，UTF-8 安全）+ 无 `last_beat.json`。已过干跑验证 | `"<本文件>"`（**管理员终端**） | **是** |
+| `logscan.ps1` | UTF-8 安全的日志子串检查（替代 findstr）：`-Path <log> -Need "SYM MISS"`。退出码 0=未找到 / 1=找到 / 3=文件读不到 | `powershell -File "<本文件>" -Path <log> -Need <子串>` | 否 |
 | `gen_finalize.py` | 上面那个的**生成器**（复用 `gen_install.audit()` 做 cmd 陷阱审计） | `<python> "<本文件>"` | 否 |
-| `inject_main_v19_final.py` | **v19 定稿源（权威副本）**，`RES = { v: 19 }`。改代码改这个文件 | — | 否 |
+| `inject_main_v19_final.py` | **v19 存档**（`RES = { v: 19 }`），已被 v20 取代，仅作回退 | — | 否 |
+| `inject_main_v20_final.py` | **v20 定稿源（权威副本）**，`RES = { v: 20 }`。改代码改这个文件 | — | 否 |
 | `install_template.cmd` | 装机包模板（**先验源** → 备份〔已有回退点则不覆盖〕 → 覆盖 → 强制重注入 → 回滚提示）。**不要手改**，用 `gen_install.py` 生成 | — | **是** |
 
 - `probe_geom.py` / `synchk.py` / `tplchk.py` 的输出都写到**当前工作目录**，不硬编码路径
@@ -140,11 +154,11 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 
 ## 4. 改源 → 校验 → 装机
 
-1. **改源**：只改 `tools/inject_main_v19_final.py`
+1. **改源**：只改 `tools/inject_main_v20_final.py`
 2. **静态校验**：`python synchk.py <源>` —— AST + 三段 JS 各自 `node --check` + 关键标记计数 + STALE 洁净断言。**全绿才算改对**
 3. **生成装机脚本**：`python gen_install.py <VER>`（**不要手改模板**）—— 保证纯 ASCII、CRLF、CONFIG 各行填对、自动跑 trap audit
 4. **体检**：`python tplchk.py <装机脚本> <VER> <应放行源> <应拦住源>` —— 静态 10 项 + 动态 5 项全绿才能交付。动态项拿真实文件核对退出码方向（好源必须放行、旧源必须拦住），**别只跑正向** —— 只测「新的能过」的校验脚本可能是个永远返回 OK 的摆设
-5. **交付**：用户在**管理员终端**跑装机脚本（或一键定稿包 `Finalize_v19.cmd`）
+5. **交付**：用户在**管理员终端**跑装机脚本（v20 的一键定稿包需先用 `gen_finalize.py` 生成 `Finalize_v20.cmd`）
 
 装机脚本六步（编号 `[N/6]`，**全程 goto，零括号块**）：
 
@@ -171,9 +185,10 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
   "ifs": 20, "lw": 4.4,         // 项字号 / 标签最小宽(em)
   "vfs": 22, "vm": 0, "vg": 6,  // 电压字号 / 左边距 / 与值间隔
   "minw": 0,
-  "refresh_ms": 3000,           // 自带刷新节拍，默认 3000（与原生屏幕节拍对齐）。
-                                // <3500 会被自动抬到 3500，除非 "_allow_fast_tick": true
-  "tick": 7,
+  "refresh_ms": 3500,           // 自带刷新节拍。★真实行为：<3500 一律被保险丝抬到 3500
+                                // （除非 "_allow_fast_tick": true）—— 写 3000 不会生效，
+                                // 日志 rms(文件) 与 rms(生效) 是两个数，别看混
+  "tick": 7,                    // ⚠️ v20 起已删除：从不在 DEF 里、从未生效过的死参数
   "css": "..."                  // 追加 CSS，插在样式表最后（能压过同权规则）
 }
 ```

@@ -124,15 +124,15 @@ for mk, desc in EXTRA:
 if warn:
     print('  (有 %d 项缺失 —— 若是有意演进到新版本，忽略；否则检查改动是否漏了)' % warn)
 
-# 4b) 版本号一致性：RES = { v: N } / RES.ver = N 两处必须一致
+# 4b) 版本号一致性（★v20 起三处）：Python 头 VER = N / RES = { v: N } / RES.ver = N
 vers = set()
-for pat in (r"RES = \{ v: (\d+) \}", r"RES\.ver = (\d+)"):
-    for mm in re.finditer(pat, src):
+for pat in (r"^VER = (\d+)", r"RES = \{ v: (\d+) \}", r"RES\.ver = (\d+)"):
+    for mm in re.finditer(pat, src, re.M):
         vers.add(mm.group(1))
 if len(vers) == 1:
-    print('[OK] 版本号一致: v%s' % list(vers)[0])
+    print('[OK] 版本号一致（三处同值）: v%s' % list(vers)[0])
 else:
-    print('[FAIL] 版本号不一致（三处应为同一值）: %s' % sorted(vers))
+    print('[FAIL] 版本号不一致（三处应为同一值: VER / RES={v:N} / RES.ver）: %s' % sorted(vers))
     ok = False
 
 # 5) ★★★ 最关键的一条：STALE 里【不能】出现当前版本正在用的 id

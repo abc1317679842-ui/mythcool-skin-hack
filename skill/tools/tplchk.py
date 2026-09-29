@@ -97,7 +97,11 @@ def main():
         'S2', '全 CRLF')
 
     low = txt.lower()
-    chk('findstr' not in low, 'S3', '无 findstr')
+    # ★v20 修正：只拦 findstr【命令调用】，rem 注释里的提及不算
+    # （Finalize 模板的 HARD RULES 注释本身就写着 "do not verify markers with findstr"）
+    fn_lines = [i for i, ln in enumerate(lines, 1)
+                if 'findstr' in ln.lower() and not ln.strip().lower().startswith('rem')]
+    chk(not fn_lines, 'S3', '无 findstr 命令（rem 注释除外）%s' % ('' if not fn_lines else ' 行=%s' % fn_lines))
 
     blocky = [i for i, ln in enumerate(lines, 1)
               if re.match(r'^\s*if\s+.*\(\s*$', ln)]
@@ -182,8 +186,14 @@ def main():
             fails.append('D3')
 
     if not chk_ps or not os.path.exists(chk_ps):
-        print('  [SKIP] 找不到 check_beat.ps1，跳过 D4-D5')
-        fails.append('D-skip')
+        # ★v20 修正：check_beat.ps1 是 v18 时代的 beat 校验器，v19 起已废弃。
+        # 脚本不引用它 = 正常演进，不算 FAIL（只有脚本【引用了】而文件缺失才该 FAIL，
+        # 那种情况已被 S10 覆盖）。
+        if re.search(r'check_beat\.ps1', txt, re.I):
+            print('  [FAIL] 脚本引用 check_beat.ps1 但文件不存在')
+            fails.append('D-skip-ref')
+        else:
+            print('  [SKIP] check_beat.ps1 不存在且脚本未引用（v19+ 正常）—— D4-D5 不适用')
     else:
         if not os.path.isdir(tmpdir):
             os.makedirs(tmpdir)

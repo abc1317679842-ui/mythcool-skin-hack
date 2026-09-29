@@ -20,7 +20,8 @@
   "hide": [
     "mbv"
   ],
-  "refresh_ms": 3000,
+  "refresh_ms": 3500,
+  "_rm说明": "refresh_ms <3500 会被注入器保险丝自动抬到 3500（避免与原生 3s 节拍同频撞拍）；真要 <3500 需显式加 _allow_fast_tick:true。所以别写 3000 —— 写了也不生效。",
   "_css备注": "示例：把内存/显存行改成「电压 + 中文标签 + GB 数值」，并把网络上下行的 S 从斜切里救出来。不想要就清空本字段。",
   "css": ".ProgressBar.outside.AeeAndCui{gap:0 !important;width:296px !important;}.ProgressBar.outside.AeeAndCui>span.mtc-inline.mtc-inline{order:1 !important;min-width:118px !important;font-size:22px !important;}.ProgressBar.outside.AeeAndCui>span.mtc-inline.mtc-inline .mtc-iv{font-size:22px !important;font-weight:700 !important;}.ProgressBar.outside.AeeAndCui>p{order:2 !important;margin-left:20px !important;font-size:22px !important;color:#9fd6ff !important;}.ProgressBar.outside.AeeAndCui>span:not(.mtc-inline){order:3 !important;margin-left:20px !important;flex:1 1 auto !important;text-align:right !important;font-size:22px !important;color:#ffffff !important;font-weight:700 !important;}.hardware-infor.outside.AeeAndCui:not(.img_back){transform:translateY(-10px) !important;font-size:28px !important;white-space:nowrap !important;width:auto !important;overflow:visible !important;min-width:0 !important;}.hardware-infor.outside.AeeAndCui:not(.img_back) *{white-space:nowrap !important;flex-shrink:0 !important;overflow:visible !important;font-size:28px !important;}.hardware-infor.outside.AeeAndCui:not(.img_back) p{font-size:28px !important;}.hardware-infor.outside.AeeAndCui:not(.img_back) span{font-size:22px !important;}.hardware-infor.outside.AeeAndCui:not(.img_back):not(.triangle_icon2){left:auto !important;right:-11px !important;}"
 }

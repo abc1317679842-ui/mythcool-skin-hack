@@ -79,8 +79,25 @@ the (much lower) resource usage they advertise.
 | Reversibility | uninstall driver | ✅ delete one scheduled task |
 | Adding fields to the built-in skin | ❌ build your own panel | ✅ **add directly** |
 | Live tweaking | recompile / restart | ✅ **edit a JSON, effective in 1s** |
+| Dependency on the vendor app | ✅ none at all | ❌ **hard dependency** — vendor stops updating / changes the rendering stack or V8 → this project **breaks with it, possibly silently** (see below) |
 
 **One line:** they *replace* the app; this project *modifies* it.
+
+### Version-upgrade self-check (do this after every official app update) ★
+
+The injection chain resolves **V8 MSVC mangled symbol names** (`?GetCurrent@Isolate@v8@@...`)
+inside the Myth.Cool main process via Frida — these names are **tightly coupled to the V8
+version**. When the vendor ships a new Electron/V8, the names change:
+
+- **v20+**: missing symbols are reported explicitly — `SYM MISS` in the log,
+  `"symMiss": true` in `last_result.json`, exit code 3. **No silent failure.**
+- **v19 and earlier**: fails silently — everything looks fine but injection never succeeds.
+
+After an official update: restart Myth.Cool, check the tail of `log\inject.log` for
+`SYM MISS`; if present, re-dump symbols with `Module.enumerateExports` (match demangled
+names like `Isolate::GetCurrent`), fill them back into the `Syms` table, run `synchk.py`,
+then deploy. Also: `ProcessNotRespondingError` on attach usually means the **target process
+runs elevated** while your terminal doesn't — check that before blaming symbols.
 
 ---
 
