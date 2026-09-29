@@ -16,7 +16,7 @@
 #  file carries a UTF-8 BOM, so non-ASCII here would come out garbled.
 # ============================================================
 param(
-    [string]$Dest = (Join-Path $env:ProgramData 'MythCoolSkinHack')
+    [string]$Dest = (Join-Path $env:ProgramData 'MythCoolInject')
 )
 
 $ErrorActionPreference = 'Stop'

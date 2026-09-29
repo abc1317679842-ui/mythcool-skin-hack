@@ -5,7 +5,7 @@ REM
 REM  1. prepares the runtime (copies files, builds a private
 REM     Python venv, installs frida)
 REM  2. verifies the silent launcher
-REM  3. registers the scheduled task \MythCoolSkinHack
+REM  3. registers the scheduled task \MythCoolInject
 REM  4. applies the patch once, right now
 REM  5. reports the result
 REM
@@ -19,7 +19,7 @@ REM ============================================================
 
 setlocal
 set "SRC=%~dp0"
-set "DEST=%ProgramData%\MythCoolSkinHack"
+set "DEST=%ProgramData%\MythCoolInject"
 
 net session >nul 2>&1
 set "ELEV=%errorlevel%"
@@ -68,8 +68,8 @@ echo   install : %DEST%
 echo   log     : %DEST%\log\inject.log
 echo   config  : %DEST%\tune.json   (edit + save = takes effect live, no restart)
 echo.
-echo   task    : MythCoolSkinHack  (at logon + every 1 minute)
-echo             remove with:  schtasks /Delete /TN MythCoolSkinHack /F
+echo   task    : MythCoolInject  (at logon + every 1 minute)
+echo             remove with:  schtasks /Delete /TN MythCoolInject /F
 echo.
 echo Done. This window closes in 120 seconds.
 timeout /t 120 >nul

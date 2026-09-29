@@ -128,6 +128,7 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 | `gen_install.py` | **从模板生成某一版装机脚本**（保证纯 ASCII + CRLF + CONFIG 正确，并自动跑 trap audit）；新增版本只需往脚本里的 `NOTES` 字典加一条 | `<python> "<本文件>" <VER> [TAG] [SRC] [DST]` | 否 |
 | `verify_markers.ps1` | UTF-8 安全的标记校验器，**取代 findstr**。`-Neg` 跑反向断言。退出码 0=全绿 / 1=缺必需 / 2=有违禁 / 3=文件不存在 | `powershell -File "<本文件>" -Path <源> -Ver <VER> [-Neg]` | 否 |
 | `cmdcheck.py` | **交付 .cmd 前的强制校验器**：转 CRLF + 断言纯 ASCII / 零裸 LF / 所有 goto·call 目标存在 / 括号配平 / 无被延迟展开吃掉的裸 `!` | `<python> cmdcheck.py FILE.cmd [FILE2 ...] [--no-write]` | 否 |
+| `repochk.py` | **全仓库常量一致性**（防漂移）：断言任务名只剩 `MythCoolInject`、安装路径只剩 `%ProgramData%\MythCoolInject`、Install 模板与定稿源同版本、Python `VER` 与 JS `RES.ver` 同值。仓库有两条部署路径（Install.bat / Finalize_*.cmd），历史上出过「装的是 v13 模板」的双版本事故 | `<python> repochk.py [仓库根]` | 否 |
 | `Finalize_v19.cmd` | **v19 存档**（已被 v20 取代） | — | **是** |
 | `Finalize_v20.cmd` | **★★★ 一键定稿包（清场 + 部署 v20 + 重注入）**：管理员终端跑一次。回退点自动升级为 `bak_v19`（从 v19 存档快照，bak_v17 保留作深回退）；验收两项：log 无 `SYM MISS`（用 logscan.ps1，UTF-8 安全）+ 无 `last_beat.json`。已过干跑验证 | `"<本文件>"`（**管理员终端**） | **是** |
 | `logscan.ps1` | UTF-8 安全的日志子串检查（替代 findstr）：`-Path <log> -Need "SYM MISS"`。退出码 0=未找到 / 1=找到 / 3=文件读不到 | `powershell -File "<本文件>" -Path <log> -Need <子串>` | 否 |
@@ -195,6 +196,9 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 
 **热调**：`fs.watchFile(tune.json, {interval:1200})` —— 改完 1.2 秒内生效，**不用重跑脚本、不用提权**。这是唯一常驻开销（每 1.2s 一次 `stat`）。
 
+**★ `minw` / `vm` 与皮肤绑定**：文件里的 `0` 是 **AeeBiCui（博物馆1）的实测适配值**，代码出厂兜底是 `minw:124 / vm:3`，
+文件值优先于代码默认。**换皮肤的人别照抄这两个 0** —— 照抄会拿到零间距，必须按自己的皮肤重新调。
+
 **改坏了一起不算事**：把 `tune.json` 换回默认值，或重启 Myth.Cool 即回原始皮肤。
 
 ## 6. 排查指南：注入后出问题，先看哪里
@@ -216,7 +220,7 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 | 改 `tune.json` 完全没反应 | `tune_ack.txt` 是否新增 | BOM 没剥（踩坑表 #3）；或文件没保存 |
 | 元素转 90° / 位置错乱 | `last_result.json` 的 `inJx` / `layerParent` | 浮层挂错父节点（§2） |
 | 热调越改越卡、画面频繁重排 | `inject.log` 是否反复出现注入行 | 热调风暴（`applyN` 持续增长）→ 撤销最近改动对照 |
-| 需要给注入器归因（是否它引起的问题） | 管理员终端停用计划任务对照 10 分钟 | `schtasks /Change /TN <任务名> /DISABLE`（任务名以安装时为准，仓库默认 `MythCoolSkinHack`），对照完 `/ENABLE` 恢复 |
+| 需要给注入器归因（是否它引起的问题） | 管理员终端停用计划任务对照 10 分钟 | `schtasks /Change /TN <任务名> /DISABLE`（任务名以安装时为准，仓库默认 `MythCoolInject`，老安装包可能是 `MythCoolSkinHack`；不确定就先 `schtasks /Query /FO LIST | findstr /i MythCool` 查），对照完 `/ENABLE` 恢复 |
 
 ### ⚠️ 注意事项：副屏「偶尔闪黑」与注入器的关系
 

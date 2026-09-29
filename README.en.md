@@ -210,8 +210,8 @@ rmdir /s /q C:\ProgramData\MythCoolInject
 ```
 
 **Scheduled tasks used by this project**: `MythCoolInject` (older installers may
-have registered `MythCoolSkinHack` — either name is fine to delete, there is no
-third one). If your machine also
+have registered the legacy name `MythCoolSkinHack` — either name is fine to
+delete, there is no third one). If your machine also
 has `MythCoolScreenFix` / `MythCoolFix` (`C:\ProgramData\MythCoolFix\`) — that is a
 **separate** wake-from-sleep repair tool (restarts Myth.Cool after sleep), **not part of
 this project**. The two coexist fine: after it restarts Myth.Cool, this project's task

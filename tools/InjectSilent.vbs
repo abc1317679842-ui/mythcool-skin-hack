@@ -1,7 +1,7 @@
 ' ============================================================
 '  Myth.Cool Skin Hack - launcher: no console window + cheap fast path
 '
-'  Called by the scheduled task \MythCoolSkinHack every minute as:
+'  Called by the scheduled task \MythCoolInject every minute as:
 '    wscript.exe //B //NoLogo "<install dir>\InjectSilent.vbs"
 '
 '  WHY A VBS LAUNCHER (and not just "powershell.exe -File ...")

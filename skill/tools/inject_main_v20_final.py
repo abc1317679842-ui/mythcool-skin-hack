@@ -973,14 +973,14 @@ for pid in cands:
         sc.load()
         time.sleep(4)
         # JS 侧最多等 120 秒窗口 —— 这里给 150 秒
-        # ★v20 修订(P3)：SYM MISS 时 agent 顶层 throw 走异步 error 消息、结果文件
-        # 永远不会出现 —— 原逻辑会白等满 150 秒。检测到 error/SYM MISS 即止损。
+        # ★v20 修订(P3/R3)：只在【确认是 SYM MISS】时提前止损 —— agent 顶层 throw 后
+        # 结果文件永远不会出现，等满 150 秒纯属浪费。其它 error（attach/加载类）
+        # 保持原等待：结果文件仍可能出现，提前 break 会误杀一个本会成功的候选。
         for _ in range(75):
             if os.path.exists(OUT):
                 got = True
                 break
-            if any(m.get('type') == 'error' or 'SYM MISS' in str(m.get('payload') or '')
-                   for m in msgs):
+            if any('SYM MISS' in str(m.get('payload') or '') for m in msgs):
                 break
             time.sleep(2)
         for m in msgs:

@@ -90,9 +90,23 @@ if (Test-Path -LiteralPath $venvPy) {
 }
 
 # ---------- scheduled task ----------
-Add-Section 'Scheduled task \MythCoolSkinHack'
+Add-Section 'Scheduled task \MythCoolInject (legacy name: \MythCoolSkinHack)'
+$taskName = $null
+foreach ($n in @('MythCoolInject', 'MythCoolSkinHack')) {
+    try {
+        $null = Get-ScheduledTask -TaskName $n -ErrorAction Stop
+        $taskName = $n
+        break
+    } catch {}
+}
+if (-not $taskName) {
+    Add-Line '  NOT REGISTERED (neither MythCoolInject nor the legacy MythCoolSkinHack)'
+} else {
+    Add-Line ('  found as : \' + $taskName)
+}
 try {
-    $t = Get-ScheduledTask -TaskName 'MythCoolSkinHack' -ErrorAction Stop
+    if (-not $taskName) { throw 'not registered' }
+    $t = Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
     Add-Line ('  state    : ' + $t.State)
     Add-Line ('  user     : ' + $t.Principal.UserId + ' / ' + $t.Principal.LogonType + ' / ' + $t.Principal.RunLevel)
     foreach ($a in $t.Actions) {
@@ -107,7 +121,7 @@ try {
         }
         Add-Line ('  trigger' + $i + ' : ' + $tr.CimClass.CimClassName + $rep)
     }
-    $info = Get-ScheduledTaskInfo -TaskName 'MythCoolSkinHack' -ErrorAction SilentlyContinue
+    $info = Get-ScheduledTaskInfo -TaskName $taskName -ErrorAction SilentlyContinue
     if ($info) {
         Add-Line ('  last run : ' + $info.LastRunTime + '   result=' + $info.LastTaskResult)
         Add-Line ('  next run : ' + $info.NextRunTime)
