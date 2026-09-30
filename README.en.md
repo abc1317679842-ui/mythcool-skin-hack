@@ -148,37 +148,47 @@ need re-measuring per skin:
 
 USB ids: case screens `345F:9132` (MS9132), AIO screens `374A:A021`.
 
-## Known issue: occasional screen flicker-to-black (and this project)
+## Known issue: occasional flicker-to-black (**separate topic, not a feature of this project**)
+
+> This section is about **diagnosing a phenomenon**, not about what this project does.
+> The flicker is not caused by the injector being active, and none of it belongs to the
+> skin-patching workflow — the related tool (`freeze-anim/`) is a standalone diagnostic.
 
 During development the author's case screen occasionally flickered to black for
 tens to a few hundred milliseconds and recovered on its own, content intact.
 After millisecond-level USB-stream log analysis, injector on/off A/B testing,
-a clean reinstall and system-event forensics — **as of this writing the root
-cause is still unknown.** What can be said responsibly:
+a clean reinstall, system-event forensics and skin comparison — **as of
+2026-09-30 the prime suspect is identified**:
 
-- **We cannot fully rule out any influence from the injector, but it is most
-  likely NOT the main cause** — the flicker still happened with the injector
-  disabled, and at the moment of a recurrence the three evidence lines
-  (USB-stream heartbeat, injector log, system events) were all clean
-  (see docs/05 §4.2, Chinese).
-- **The clean reinstall (see docs/05) only mitigates — it does not fix.**
-  After reinstalling, no flicker for several hours, then it recurred the same
-  night. Still worth doing (cheapest step, rules out the version-skew
-  variable), but don't expect it to solve the problem alone.
-- The author personally suspects the Myth.Cool software itself (rendering
-  layer or deeper); the exact mechanism is hard to pin down on the user side.
+- **Prime suspect: the continuously animating bottom layer of the AeeBiCui
+  ("Museum 1") skin.** The author noticed that **static widgets on top did NOT
+  flicker — only that bottom animated area went black**; after freezing that
+  skin's CSS animations/transitions it **did not recur for 5–6 consecutive hours**
+  (previously several times per day / within hours). Switching to a stock skin
+  also almost never flickers, which cross-confirms "this is skin-specific".
+- **Honest caveat: this is not a permanent verification** (only a 5–6 hour
+  window), and it says nothing about *your* machine — skins differ per device,
+  and even a similarly named skin may come from a different version.
+- **Transport/hardware side is ruled out**: the USB stream heartbeat is perfect
+  at the exact moment of a flicker; injector log and system events are clean.
+- **The clean reinstall only mitigates** (flicker returned the same evening
+  after a reinstall). Cheapest step, still worth doing, but don't expect it to
+  solve the problem alone.
 - Public reports of "black screens" are **not necessarily the same phenomenon**:
   some accompany full-system freezes, some were screen-batch defects (there is
   at least one "replaced by support, fixed" report). Compare carefully before
   blaming anything.
 
-If you want to investigate this yourself: docs/05 lists the directions already
-explored (injector A/B, power management, USB ports, RGB-suite conflicts, clean
-reinstall, skin origin) — feel free to use them as a starting point.
+If you want to investigate this yourself: docs/05 gives a **reusable triage
+recipe** (first identify *which layer* flickers → freeze animations as an A/B
+test → compare against a stock skin → …). The "freeze animations" tool lives in
+[`freeze-anim/`](freeze-anim/) — standalone, reversible, bound to one skin only.
+**This repo does not freeze any skin's animations by default** — whether to do
+so is your call, see docs/05 §4.7.
 
-Full write-up (phenomenon classification, ruled-out causes, the version-skew
-finding, sourced case table, triage order) in
-[`docs/05-闪黑排查.md`](docs/05-闪黑排查.md) (Chinese).
+Full write-up (phenomenon classification, layer-by-layer analysis, the freeze
+A/B test, mechanism hypotheses, ruled-out causes, sourced case table, triage
+order) in [`docs/05-闪黑排查.md`](docs/05-闪黑排查.md) (Chinese).
 
 ## Keywords
 
@@ -210,7 +220,9 @@ matters. Start here:
 | [`docs/01-原理.md`](docs/01-原理.md) | Why injection; the V8 injection chain; why frida can detach |
 | [`docs/02-使用与调参.md`](docs/02-使用与调参.md) | Install, `tune.json` reference, measuring positions |
 | [`docs/03-持久化.md`](docs/03-持久化.md) | Scheduled-task design: idempotency (PID + injector hash), no window, **self-healing after the page is rebuilt**, performance |
-| [`docs/04-踩坑合集.md`](docs/04-踩坑合集.md) | ★ **30 real pitfalls**, each with symptom → cause → fix |
+| [`docs/04-踩坑合集.md`](docs/04-踩坑合集.md) | ★ **32 real pitfalls**, each with symptom → cause → fix |
+| [`docs/05-闪黑排查.md`](docs/05-闪黑排查.md) | **Standalone flicker-triage write-up**: classification, layer-by-layer analysis, the freeze-animations A/B test, mechanism hypotheses, ruled-out causes, sourced cases, triage order |
+| [`freeze-anim/`](freeze-anim/) | Flicker diagnostic tool (**independent of the injector**): freeze / undo / status the CSS animations of one skin, for A/B testing whether flicker comes from page animation |
 
 ## Uninstall
 

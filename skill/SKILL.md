@@ -75,18 +75,28 @@ InjectSilent.vbs ──pid 比较（只在【没在跑且 state=NONE】时跳过
 
 **主进程判定**：`Inject.ps1` 用「父进程不在 MythCool 集合里」挑真正的主进程（Electron 派生一堆同启动时间的 `--type=gpu-process`，非提权读不到 CommandLine，按时间排序分不出来）。**VBS 里那套 WMI 判定是同款逻辑，且 n>64 时整段放弃（回退给 ps1）。**
 
-### ★★★ 定稿状态（2026-09-30 = **v22**）
+### ★★★ 定稿状态（2026-09-30 = **v22 + 当日修复**）
+
+> ⚠️ **v22 在 2026-09-30 傍晚打了两个补丁（版本号未变，`RES.v/VER` 仍是 22）：**
+> ① **token 全局替换**：agent 里 `String.replace('PATCHCODE', …)` 只换第一处，而 MAIN 里
+> `PATCHCODE` 出现 2 次 ⇒ **自愈重打从上线起就没真正工作过**（ReferenceError 被 try 吞了）。
+> 改成 `split().join()` 后**又踩了一个**：MAIN 的**注释里也有一处** `PATCHCODE` 字样，
+> 全局替换把十几 KB 代码灌进块注释、`*/` 提前闭合 ⇒ `compile fail`。
+> **正解 = 全局替换 + 注释里不许出现占位符字样 + 上线前对「拼装后的最终代码」跑 `node --check`。**
+> ② **失败重试循环**：注入失败时哈希不记账 ⇒ 计划任务每分钟重试、每次 attach 挂 155s，
+> 把主进程拖到崩溃重启（日志 `MythCool restarted 21776 -> 16908`）。看到 `compile fail` 要
+> **立刻回滚文件止血**。详见仓库 `docs/04-踩坑合集.md` #31 / #32。
 
 | 项 | 值 |
 |---|---|
 | **定稿版本** | **v22**（`RES = { v: 22 }` / Python `VER = 22`，三处必须同值，`synchk.py` 强制） |
-| **部署状态** | ✅ **已上线并实测**（2026-09-30 05:31）｜ 任务自愈触发 → 注入成功 ｜ 日志：`page guard: web-contents-created armed` + `watchdog armed (10s)` + `皮肤: AeeBiCui (官方编号=31, 判据=root) \| 配置段=AeeBiCui \| 绑定模式=True` ｜ 用户实测「切几次皮肤（含自定义）再切回博物馆1」**没掉** |
+| **部署状态** | ✅ **已上线并实测**（2026-09-30 05:31 首轮；**15:01:07 修复版重新注入成功**）｜ 日志：`page guard: web-contents-created armed` + `watchdog armed (10s)` + `皮肤: AeeBiCui (官方编号=31, 判据=root) \| 配置段=AeeBiCui \| 绑定模式=True` ｜ 用户实测「切几次皮肤（含自定义）再切回博物馆1」**没掉** |
 | 定稿源（权威副本） | `mythcool-skin-hack\skill\tools\inject_main_v22_final.py` |
 | 装机模板 | `mythcool-skin-hack\tools\inject_main.py`（内容 = 定稿源，`repochk.py` 断言） |
 | 公开仓库 | https://github.com/abc1317679842-ui/mythcool-skin-hack ｜ commit `8ba570951a20`（v22） |
 | 回退点 | `…\ProgramData\MythCoolInject\inject_main.py.bak_v17.py` / `.bak_v19.py`；`tune.json.bak_v20flat`（扁平结构，v21 前） |
 | 存档（别部署） | `tools/inject_main_v18_final.py`（带 beat）/ `inject_main_v19_final.py`（v19） |
-| 环境快照 | 主进程 pid 21144 ｜ 页面 `mythcool://bd41175b.../windows/pages/mainpage.html` ｜ 本机装的皮肤 = dial **29/30/31** |
+| 环境快照 | 主进程 pid **会变**（重启/崩溃后换号）⇒ **别记死 pid，每次从 `inject.log` 取**（见 §1.5 / §9）｜ 页面 `mythcool://bd41175b.../windows/pages/mainpage.html` ｜ 本机装的皮肤 = dial **29/30/31** |
 
 #### 版本谱系（一排到底，别记混）
 
@@ -98,6 +108,7 @@ InjectSilent.vbs ──pid 比较（只在【没在跑且 state=NONE】时跳过
 | v20 | A1 V8 符号显式报错(exit 3) / A2 日志区分文件值与生效值 / B1 宿主缺失拒绝降级挂载 / B2 推窗前查窗口存活 |
 | **v21** | **皮肤识别 + 分皮肤绑定**（§1.6）；修掉旧版 `hideBtns()` 的跨皮肤误伤 |
 | **v22** | **主进程自愈守卫**（§1.7）+ 幂等加注入器哈希 + `$PY` 运行时解析 + 首帧快照不再骗人 + `_skinRules` 可配置 + 新增 `probe_skins.py` |
+| **v22 修复（2026-09-30 晚，版本号未变）** | ① token 改全局替换（修「自愈重打从未生效」）+ 注释去占位符字样；② 闪黑定位到 AeeBiCui 底层动画（独立话题，见 §1.5）；③ 新增独立诊断工具 `freeze-anim/`；④ 坑表加 18/19/20 |
 
 ### 1.6 皮肤识别与分皮肤绑定（v21 起）
 
@@ -211,15 +222,39 @@ document.querySelectorAll('[data-mtc]').length   // 新增项个数
 **v19 干跑实测**：26 个文件 → 删 22 / 留 4（`inject_main.py` `inject_main.py.bak_v17.py` `tune.json` `Inject.ps1`）/ 哈希 `abcb3f27b29b7a1c` 一致 / `last_beat.json` 已清 ⇒ **PASS**。
 **`verify_markers.ps1` 的判定可以离线复刻预检**（PowerShell stdout 在本沙箱不回显）：用 Python 直接做 `$must` / `$never` 子串计数并折算退出码 —— 实测 v19 → 0（放行）、v18 → 1、v17 → 1（都被拦），与装机脚本 `if errorlevel 1 goto MARKF` 的语义完全对得上。
 
-## 1.5 副屏闪黑排查（已拆分出技能）
+## 1.5 副屏闪黑排查（**独立话题** —— 与注入器功能无耦合）
 
-**闪黑根因排查的全部档案（含「闪黑与注入器关系」的最终判定）已拆分至项目文件夹：**
-`C:\Users\14779\WorkBuddy\2026-09-28-03-57-03\VK03副屏闪黑排查档案.md`（**本机专属，禁上仓库**）。
+> ★ **纪律：闪黑相关内容不许混进注入器的功能叙述里。** 它是「现象排查」，
+> 仓库里对应的是 `docs/05-闪黑排查.md` + 独立工具 `freeze-anim/`；
+> **仓库默认不给任何皮肤冻结动画** —— 要不要照做是使用者自己的选择（docs/05 §4.7）。
 
-一句话摘要（2026-09-29 22:50）：**注入器有嫌疑（源码三处自认「闪」+ `refresh_ms` 错配已修回 3000）、
-非必要条件（未注入也闪）、大概率不是主因**（主嫌疑 = 旧环境双版本混用：页面跑 1.1.33 灰度版代码而主程序是 1.1.29；
-卸载清残留重装后开注入暂不闪）。**24~48 小时观察定案**；期间用户报闪 → 回查 `%APPDATA%\WinUsbDisplay\` 心跳
-（>100ms 空档 = 推流层；零异常 = 页面/屏层），方法在档案里。
+**结论（2026-09-30 傍晚，5~6 小时观察）**：高度嫌疑 = **AeeBiCui「博物馆1」皮肤最底层那块
+持续动画的区域**。作者的一手观察：闪黑时**上方静态组件没闪，黑的只有最底层动态那一片**；
+把该皮肤的 CSS 动画/过渡冻结后**连续 5~6 小时未复现**（此前每天多次/数小时级）；
+换官方自带皮肤也几乎不闪（交叉印证「皮肤特定」）。
+**诚实边界**：观察期不足，不是永久验证；皮肤因人而异，**不能替别人的机器下结论**。
+
+**可复用排查思路（给别人用的那张图）**：
+
+1. **先看清是「哪一层」在闪**（零成本、信息量最大）：整屏黑？还是只有某块动态区黑？上方组件跟着闪吗？
+2. 定性：推流日志里闪黑时刻是否正常（正常 ⇒ 硬件/驱动/推流线程排除）
+3. ★ **冻结动画 A/B**：禁当前皮肤的全部 CSS 动画/过渡 → 闪黑消失 ⇒ 渲染侧（皮肤动画）；
+   仍闪 ⇒ 抓帧之后的 USB/驱动/屏/供电，页面侧白搭
+4. 换官方皮肤对照 → 5. 干净重装（缓解不根治）→ 6. 退灯控套件 → 7. 售后查屏批次
+
+**作用层（别搞错它动了什么）**：冻结只作用于 **DOM/CSS 层**；抓帧（`DisplaySendPicture`）、
+帧率、每帧字节数、USB 带宽**全不变** —— 是「推流照推、画面不再变化」，不是把推流掐掉。
+冻结期间 **GIF 小人仍动、轮播仍跳页、数字仍刷新**（这三个是刻意留的对照组，它们都没触发闪黑）。
+
+**工具**：`freeze-anim/freeze_anim.py`（apply / undo / status，只绑指定皮肤，秒级可逆）。
+
+**机制推断（未证实，供后来人验证）**：抓帧读的是整帧最终位图；静态层的合成结果可复用，
+而持续动画那块每帧都要重新光栅化 ⇒ 读帧与光栅化竞争时，这一帧里动画区域**可能还没有内容**
+（黑），静态层来自缓存（正常）—— 正好解释「只有底层动态区黑」的空间特征。
+次要可能：大 GIF（两个 100 帧、合计约 5.5MB）解码卡顿、轮播切换时合成层重建的空档。
+
+**本机专属档案（禁上仓库）**：`C:\Users\14779\WorkBuddy\2026-09-28-03-57-03\VK03副屏闪黑排查档案.md`
+（早期逐毫秒推流日志分析、灰度版本混用发现等）。仓库版 = `docs/05-闪黑排查.md`。
 
 ## 2. ★★ 坐标系 —— 最容易翻车的地方
 
@@ -282,6 +317,7 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 | `Finalize_v19.cmd` | **★★★ 一键定稿包（清场 + 部署 + 重注入）**：管理员终端跑一次 = 停任务 → 校验源 → **清掉运行日志 / 临时文件 / 旧版备份**（保留 v17 回退点）→ 部署 v19 → 恢复任务 → 强制重注入 → **验收 `last_beat.json` 不存在**。自带管理员自检 + preflight，**任何失败都不改盘**。已过隔离干跑验证（22 删 / 4 留 / 哈希一致） | `"<本文件>"`（**管理员终端**） | **是** |
 | `gen_finalize.py` | 上面那个的**生成器**：复用 `gen_install.audit()` 做 cmd 陷阱审计，产出纯 ASCII + CRLF | `<python> "<本文件>"` | 否 |
 | `probe_skins.py` | **★★ 换机器/升级 Myth.Cool 后必跑（只读）**：当前皮肤的根容器 class + 官方编号 + **本机装了哪几套**（Vue `downloaded1..32`）+ 可直接粘进 tune.json 的 `_skinRules` 骨架 | `<python> "<本文件>" [pid]` | 否 |
+| `freeze-anim/freeze_anim.py` | **闪黑诊断工具（★ 独立于注入器，不属于皮肤改造流程）**：把**指定皮肤**的全部 CSS 动画/过渡冻结成静态，用于 §1.5 的 A/B 测试；`apply`/`undo`/`status` 三模式，只绑一个皮肤、秒级可逆。pid 优先从 `inject.log` 取（**别用启发式**，见坑 19） | `<python> freeze-anim/freeze_anim.py [apply\|undo\|status] [pid]`（**管理员终端**） | **是** |
 | `skillsync.py` | **技能自洽**：仓库 `skill/` 与本机已安装技能目录（`~/.workbuddy/skills/<name>/`）是否**逐字节一致**。两处会漂移（实测漂过：本机 SKILL.md 停在 v19、7 个 tools 脚本内容不同）。`--to-local` 以仓库为准镜像到本机；`--to-repo` 只回灌两处都有的文件 | `<python> skillsync.py [--to-local\|--to-repo]` | 否 |
 | `repochk.py` | **交付物 + 跨文件一致性**：任务名只剩 MythCoolInject / 安装路径只剩 MythCoolInject / 定稿源与装机模板同版本 / **每个交付文件内部 `VER`·`RES={v:N}`·`RES.ver` 三值集合必须为 1** | `<python> "<本文件>" <仓库根>` | 否 |
 | `inject_main_v19_final.py` | v19 存档（**别部署**，被 v22 取代） | — | 否 |
@@ -386,6 +422,9 @@ C:\ProgramData\MythCoolInject\python\python.exe \
 | 15 | 修完 14 之后，ps1 能进了，但报 **`FATAL missing python`** + exit 3，注入彻底死掉 | `Inject.ps1` 里 `$PY` **写死** `venv\Scripts\python.exe`，但本机实际是 `python\python.exe`（`venv` 目录根本不存在 —— 装机时没建 venv 就会落到嵌入式运行时） | **运行时探测**：`venv\Scripts\python.exe` → `python\python.exe` → `python\Scripts\python.exe` → PATH 上的 `python.exe`；都没有才 FATAL 并把**试过的全部路径**打进日志。★ 教训：仓库里的路径常量要按"装机可能有两种布局"写，别只认自己那台 |
 | 16 | 日志显示 `配置段=None / 绑定模式=False / cssLen=0`，**看着像皮肤没认出来、配置没生效** | MAIN 的顺序是「先 `executeJavaScript(PATCHCODE)`，再 `arm()`→`pushTune()`」。PATCH 先落地时它跑 `applyAll()` 时 `window.__MTC_TUNE` 还没送到 ⇒ **返回的快照是出厂默认值**（界面随后被 pushTune 那次 `__mtc_apply` 改对了，只是这份快照是旧的）。**新页面/重建后的页面尤其明显** | PATCH 末尾若 `__MTC_TUNE` 还没到就等（≤2.5s，返回 Promise）；到后发现 `RES.cfg.tuneSrc` 仍 false 就补跑一次 `applyAll()`，再返回。★ 这就是"日志不许骗人"的又一例 |
 | 17 | 在 `ProgramData\MythCoolInject\` 造了临时文件，**结果删不掉** | 该目录 ACL：可**新建**，不可**覆盖**、不可**删除**（连自己刚建的都不行） | 别在那儿造临时文件（§0 铁律 2）。要临时文件去 `D:\测试临时文件夹\` |
+| 18 | ★★ 改完注入器**重注入报 `compile fail`**，注入整体失效 | 两层叠加：① `String.replace('PATCHCODE', …)` **只替换第一处**，而 MAIN 里 `PATCHCODE` 出现 2 次（首注入 + 自愈重打）⇒ 第二处残留成未定义标识符，**自愈重打其实从没工作过**（ReferenceError 被 try 吞）；② 改成全局替换后 **MAIN 的注释里也有一处** `PATCHCODE` 字样，被灌进十几 KB 代码后 `*/` 提前闭合注释 ⇒ 语法错 | 用 `split().join()` 全局替换；**注释里不许出现占位符字样**；★ **上线前必须本地模拟「完整拼装」并对最终代码跑 `node --check`**（只查单段不够 —— 坑在拼起来之后） |
+| 19 | ★★ 探测/诊断脚本 attach 后**副屏整屏定格**（不是闪一下，是彻底冻住） | 主进程 pid **选错**：用了「父进程不在 MythCool 集合里」的启发式，在有**启动器进程**的机器上选到了启动器/GPU 那个 pid。**对非主进程的 attach 会打断渲染管线** | **唯一可靠取法**：读 `inject.log` 的 `main-pid=<N>`（首启）或 `restarted <旧> -> <新>`（重启后）——**两种格式都要匹配**，取到后**先做存活校验**再 attach；全不可用才退回启发式，且**绝不逐个试** |
+| 20 | ★★ 注入失败后主进程被拖垮、**Myth.Cool 崩溃重启** | 幂等判据是「pid + 代码哈希」而**失败不记账**（只有成功才写 `last_hash`）⇒ 计划任务每分钟重试，每次 attach 挂 155s，反复扰动主进程，最终崩溃（实测日志 `MythCool restarted 21776 -> 16908`） | 看到 `compile fail` **立刻回滚文件止血**，别等它自愈；判断该循环看日志里连续的 `code changed (…) -> re-injecting same pid` + `inject FAILED rc=1 in 155s` |
 
 ## 6. tune.json —— v21 起是【分皮肤】结构
 
@@ -460,7 +499,9 @@ C:\ProgramData\MythCoolInject\python\python.exe \
 | 自带 Python 位置 | **`python\python.exe`**（`venv\Scripts\python.exe` **不存在**）。`Inject.ps1` 已改为运行时多路径探测 |
 | 计划任务的真正入口 | **`wscript.exe //B //NoLogo "...\InjectSilent.vbs"`** —— 不是直接跑 `Inject.ps1`。改部署链路时**必须是两个文件一起改**（VBS 里也有跳过逻辑） |
 | 非提权跑 Inject.ps1 | `Add-Content` 写 `log\inject.log` 会被拒，而 `Log()` 有 try/catch ⇒ **静默无痕**。"任务跑了但没日志"要想到这一层 |
-| frida attach 主进程 | **当前终端权限够，无需提权** |
+| frida attach 主进程 | ★ **Myth.Cool 主进程通常是提权的**（被提权任务重启过就会继承）⇒ **必须用户跑管理员终端**；非提权 attach 报 `ProcessNotRespondingError`（这个报错**不代表符号有问题**，先怀疑权限） |
+| 主进程 pid 怎么取 | **别猜、别用启发式**：读 `…\log\inject.log` 里的 `main-pid=<N>` / `restarted <旧> -> <新>`，取最近一条 + 存活校验（见坑 19）。pid 会因重启/崩溃而变（本机一天内就经历了 `21144 → 21776 → 16908`） |
+| 提权终端在测什么 | 管理员终端能 attach 提权进程；但**非提权进程我这边也看不到全部**（枚举视图被过滤，`alive=False` 可能是视图限制而非进程死亡）—— 判定存活要以用户侧输出为准 |
 | 副屏硬件 | `VID_345F&PID_9132&MI_03`（MS USB Display），360×960@60 |
 | 目标页面 | `mythcool://<appid>/windows/pages/mainpage.html`（appid = `bd41175b47bf495092afff37c016a8e3`） |
 | 皮肤源码（只读参考） | `C:\Users\14779\WorkBuddy\<日期>\webapp_src\`（gpk 已导出，**查皮肤行为优先读这里，比注入探测快且零风险**） |

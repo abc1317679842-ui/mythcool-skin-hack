@@ -1152,7 +1152,7 @@ MAIN = r'''
          · tune_ack.txt 停在 11:51:07，12:04 之后零新记录
          · tune.json = 4000，但 last_result.json 的 cfg.refresh_ms = 3000
          · 源码 DEF.refresh_ms = 4000（cat -A 验过）→ 说明是 __MTC_TUNE 旧值覆盖了 DEF
-       推论：PATCHCODE 的 Promise 因页面内异常 reject（applyAll 已跑完、RES 已填好，
+       推论：注入的页面代码的 Promise 因页面内异常 reject（applyAll 已跑完、RES 已填好，
        但最后那段 RES.check 的 getBoundingClientRect/getComputedStyle 强制同步布局
        可能抛异常）→ 走 .catch → arm() 被整个跳过 → 热调链路【从未武装】。
        后果：__MTC_TUNE 残留上一次注入的旧值，配置永远慢一拍。
@@ -1278,7 +1278,11 @@ function inject() {
   GetCurrentContext(iso, s1);
   var ctx = s1.readPointer(); if (ctx.isNull()) return false;
   var hs = Memory.alloc(64); HsCtor(hs, iso);
-  var code = MAINCODE.replace('PATCHCODE', JSON.stringify(PATCHCODE));
+  /* ★v22.1 修复：MAIN 里 PATCHCODE 出现 2 次（loop 首注入 + repatch 自愈重打），
+     String.replace 只换第一处 => repatch 一直拿着未定义标识符，自愈重打
+     ReferenceError 被 try 吞掉（表现为切皮肤后偶发不再注入且日志只见 throw）。
+     改 split/join 全局替换。 */
+  var code = MAINCODE.split('PATCHCODE').join(JSON.stringify(PATCHCODE));
   var cstr = Memory.allocUtf8String(code);
   var s2 = Memory.alloc(Process.pointerSize); s2.writePointer(ptr(0));
   NewFromUtf8(s2, iso, cstr, 0, -1);
