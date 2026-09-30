@@ -182,12 +182,6 @@ skin package to see what's actually inside it** — as of 2026-09-30 the status 
 - **The clean reinstall only mitigates** (flicker returned the same evening
   after a reinstall). Cheapest step, still worth doing, but don't expect it to
   solve the problem alone.
-- **⚠️ Do not count the "black while the software restarts" case as a flicker**:
-  the screen obviously goes black while Myth.Cool is closed or opening. The author's
-  machine runs a **separate** repair task that restarts Myth.Cool after wake-from-sleep,
-  and it costs about 2.4 s of black each run (see docs/05 §3.1) — that is **normal**,
-  not the phenomenon discussed here. One earlier revision listed restart blackouts as a
-  possible "source of black" — **that was wrong and has been corrected**.
 - Public reports of "black screens" are **not necessarily the same phenomenon**:
   some accompany full-system freezes, some were screen-batch defects (there is
   at least one "replaced by support, fixed" report). Compare carefully before
