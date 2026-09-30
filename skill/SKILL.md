@@ -55,7 +55,7 @@ C:\ProgramData\MythCoolInject\          ← 运行时（部署产物；我改不
 
 **源与工具（权威副本，也是推 GitHub 的那份）**：`<仓库目录>`
 - `skill/tools/inject_main_v22_final.py` ← **定稿源**（文件名与内容一致；以 `grep -m1 "^VER = "` 为准）
-- `tools/inject_main.py` ← 装机模板，内容必须与定稿源**逐字节相同**（`repochk.py` 强制）
+- `tools/inject_main.py` ← 装机模板，**与定稿源必须是同一版**：版本号（`VER` / `RES = { v: N }`）不一致会被 `repochk.py` 判 **FAIL**，版本号相同但内容有差异只给 **WARN**（通常是历史残留）。改任一方都要同步另一方
 - `tools/Inject.ps1` / `tools/InjectSilent.vbs` / `tools/Register-Task.ps1` / `tools/tune.json`
 - `tools/` 下的 `synchk.py` `repochk.py` `probe_skins.py` 等校验器/探针在 `skill/tools/`
 
