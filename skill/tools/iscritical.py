@@ -60,7 +60,7 @@ print("=" * 62)
 print(" Is the process CRITICAL?  (1 = killing it bugchecks Windows)")
 print("=" * 62)
 TARGETS = ["dwm.exe", "csrss.exe", "winlogon.exe", "services.exe", "explorer.exe",
-           "MythCool.exe", "msdwatch.py", "pythonw.exe"]
+           "MythCool.exe", "pythonw.exe"]
 for name in TARGETS:
     pids = pids_of(name)
     if not pids:
