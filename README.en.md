@@ -157,18 +157,26 @@ USB ids: case screens `345F:9132` (MS9132), AIO screens `374A:A021`.
 During development the author's case screen occasionally flickered to black for
 tens to a few hundred milliseconds and recovered on its own, content intact.
 After millisecond-level USB-stream log analysis, injector on/off A/B testing,
-a clean reinstall, system-event forensics and skin comparison — **as of
-2026-09-30 the prime suspect is identified**:
+a clean reinstall, system-event forensics, skin comparison and **unpacking the
+skin package to see what's actually inside it** — as of 2026-09-30 the status is:
 
-- **Prime suspect: the continuously animating bottom layer of the AeeBiCui
-  ("Museum 1") skin.** The author noticed that **static widgets on top did NOT
-  flicker — only that bottom animated area went black**; after freezing that
-  skin's CSS animations/transitions it **did not recur for 5–6 consecutive hours**
-  (previously several times per day / within hours). Switching to a stock skin
-  also almost never flickers, which cross-confirms "this is skin-specific".
-- **Honest caveat: this is not a permanent verification** (only a 5–6 hour
-  window), and it says nothing about *your* machine — skins differ per device,
-  and even a similarly named skin may come from a different version.
+> ### ⚠️ **The root cause was NOT found.** What follows is progress, not a conclusion.
+
+- **Established facts**: ① the offending skin (AeeBiCui "Museum 1") has **a full-screen
+  animated layer as its bottommost layer** (reproducible by unpacking the package);
+  ② after freezing **only that layer**, **6–7 hours of testing turned up no recurrence**
+  (previously several times per day / within hours).
+- **★ The key distinction is not "is anything animated" but "*which layer*" is animated.**
+  **Stock skins have animation too** (particles and other upper-layer effects), but their
+  **bottommost layer is not a full-screen animated layer**; AeeBiCui's is **one full-screen
+  animated layer covering everything**. In this test **only that bottom layer was frozen —
+  the upper GIFs, particles, carousel and number refresh all kept animating** — and the
+  flicker stopped appearing. That points at **"this layer's position/level is special"**,
+  not at "any animation causes flicker".
+- **"Why this layer flickers" = unknown**, and **no low-level evidence for this layer was
+  ever captured** (the author decided not to dig further).
+- **Several possibilities** are listed in docs/05 §4.6, but they are **unverified
+  speculation — do not cite them as conclusions**.
 - **Transport/hardware side is ruled out**: the USB stream heartbeat is perfect
   at the exact moment of a flicker; injector log and system events are clean.
 - **The clean reinstall only mitigates** (flicker returned the same evening
@@ -178,16 +186,20 @@ a clean reinstall, system-event forensics and skin comparison — **as of
   some accompany full-system freezes, some were screen-batch defects (there is
   at least one "replaced by support, fixed" report). Compare carefully before
   blaming anything.
+- The observation window was only **6–7 hours**, not a long-term verification;
+  skins differ per device, so **this says nothing about your machine**.
 
 If you want to investigate this yourself: docs/05 gives a **reusable triage
-recipe** (first identify *which layer* flickers → freeze animations as an A/B
-test → compare against a stock skin → …). The "freeze animations" tool lives in
-[`freeze-anim/`](freeze-anim/) — standalone, reversible, bound to one skin only.
+recipe** (first identify *which layer* flickers → unpack the skin to see whether its
+bottom layer is one full-screen animated layer → freeze only that layer as an A/B
+test → compare against a stock skin → …).
+Tools live in [`freeze-anim/`](freeze-anim/) and
+[`tools/gpk_dump.py`](tools/gpk_dump.py) — standalone, reversible, read-only.
 **This repo does not freeze any skin's animations by default** — whether to do
 so is your call, see docs/05 §4.7.
 
 Full write-up (phenomenon classification, layer-by-layer analysis, the freeze
-A/B test, mechanism hypotheses, ruled-out causes, sourced case table, triage
+A/B test, **possible causes (unverified)**, ruled-out causes, sourced case table, triage
 order) in [`docs/05-闪黑排查.md`](docs/05-闪黑排查.md) (Chinese).
 
 ## Keywords
@@ -221,7 +233,7 @@ matters. Start here:
 | [`docs/02-使用与调参.md`](docs/02-使用与调参.md) | Install, `tune.json` reference, measuring positions |
 | [`docs/03-持久化.md`](docs/03-持久化.md) | Scheduled-task design: idempotency (PID + injector hash), no window, **self-healing after the page is rebuilt**, performance |
 | [`docs/04-踩坑合集.md`](docs/04-踩坑合集.md) | ★ **32 real pitfalls**, each with symptom → cause → fix |
-| [`docs/05-闪黑排查.md`](docs/05-闪黑排查.md) | **Standalone flicker-triage write-up**: classification, layer-by-layer analysis, the freeze-animations A/B test, mechanism hypotheses, ruled-out causes, sourced cases, triage order |
+| [`docs/05-闪黑排查.md`](docs/05-闪黑排查.md) | **Standalone flicker-triage write-up (cause not found)**: classification, layer-by-layer analysis, skin-package unpacking, the bottom-layer-only freeze A/B test, **possible causes (unverified)**, ruled-out causes, sourced cases, triage order |
 | [`freeze-anim/`](freeze-anim/) | Flicker diagnostic tool (**independent of the injector**): freeze / undo / status the CSS animations of one skin, for A/B testing whether flicker comes from page animation |
 
 ## Uninstall
