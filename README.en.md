@@ -17,8 +17,8 @@ Don't want to read the docs and measure coordinates yourself? This repo ships a
 companion AI skill package, [`skill/`](skill/) — install it into your AI agent
 and just say "add a mainboard temperature field" or "show memory in GB".
 
-- **WorkBuddy**: copy to `~/.workbuddy/skills/mythcool-skin-injector/`
-- **Claude Code**: copy to `~/.claude/skills/mythcool-skin-injector/`
+- **WorkBuddy**: copy to `~/.workbuddy/skills/mythcool-injector/`
+- **Claude Code**: copy to `~/.claude/skills/mythcool-injector/`
 
 The skill is not tied to specific hardware: the injection chain targets the
 Myth.Cool app itself, **fully proven on a Valkyrie VK03 case screen (360×960)**;

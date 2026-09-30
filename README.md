@@ -32,8 +32,8 @@
 不想自己读文档、量坐标？本仓库带一个配套 AI 技能包 [`skill/`](skill/) —— 装进你的
 AI 智能体，之后直接用自然语言下指令：「给皮肤加个主板温度」「把内存改成 GB 绝对值」。
 
-- **WorkBuddy**：复制到 `~/.workbuddy/skills/mythcool-skin-injector/`
-- **Claude Code**：复制到 `~/.claude/skills/mythcool-skin-injector/`
+- **WorkBuddy**：复制到 `~/.workbuddy/skills/mythcool-injector/`
+- **Claude Code**：复制到 `~/.claude/skills/mythcool-injector/`
 
 技能不绑定具体硬件：注入链路作用于 Myth.Cool 应用本身，**已在瓦尔基里 VK03 机箱副屏
 （360×960）上全套实测成功**；其他 Myth.Cool 设备（水冷头、其他型号机箱屏等）机制相同、

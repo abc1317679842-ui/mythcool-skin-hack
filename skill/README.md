@@ -43,5 +43,6 @@
   - `skillsync.py` 本文件与已安装技能正文的一致性检查/同步
   - `cmdcheck.py` cmd 陷阱检查 · `gen_install.py` / `tplchk.py` / `verify_markers.ps1` / `logscan.ps1`
     （后四个属于 v19/v20 的装机包流水线，v22 起交付改走「定稿源 + synchk + repochk + 手动 Copy-Item」，仍可用于审任何 `.cmd`）
-  - ⚠️ 工具内的本机绝对路径已替换为 `C:\ProgramData\MythCoolInject\skill` / `\workspace` 占位，
-    首次使用前请按你的实际安装位置全局搜索替换
+  - ⚠️ `SKILL.md` 与工具里一律用**占位符**写路径，不写死某台机器：
+    `<仓库目录>` = 本仓库位置 ｜ `<技能目录>` = 本技能安装位置 ｜ `<工作区>` = 你放源文件/产物的目录。
+    首次使用前按你机器上的实际位置替换即可（`C:\ProgramData\MythCoolInject\` 是注入器固定运行时目录，不用换）。

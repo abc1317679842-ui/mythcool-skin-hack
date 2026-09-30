@@ -6,30 +6,28 @@ agent_created: true
 
 # mythcool-injector — Myth.Cool 副屏皮肤注入器
 
-> ## ★ 本技能的收录范围（先读这条）
+> ## ★ 本技能的收录范围
 >
-> **本技能只收录两类内容**：
+> **只收录两类内容**：
 > 1. **皮肤注入器本身的功能**（注入、排版、坐标、分皮肤绑定、自愈、装机部署…）；
-> 2. **要「组合进」皮肤注入器的功能**该怎么写（即：配置放在哪、绑定怎么写、
->    哪些写法会踩坑）—— 例如 §1.5「与『禁用底层动态』的组合写法」。
+> 2. **要「组合进」注入器的功能**该怎么写（配置放哪、绑定怎么写、哪些写法会踩坑）
+>    —— 例如 §1.5「与『禁用底层动态』的组合写法」。
 >
-> **其他内容一律不收录在本技能里**，放到别处（本仓库对应 `docs/` 目录）：
-> 现象排查过程、诊断分析、非注入器的独立工具用法、未验证的推测、素材考古等。
-> 典型例子：**副屏闪黑的完整排查**在 `docs/05-闪黑排查.md`，本技能只在 §1.5 讲
-> 「若要把它组合进来，写法注意什么」。
+> **不属于本技能**：现象排查过程、诊断分析、独立工具的用法与结论、未验证的推测、素材考古。
+> 这类内容不进这里。
 
 给瓦尔基里 VK03 机箱的 360×960 副屏（Myth.Cool + AeeBiCui 皮肤）加自定义监控项的注入系统。**非本人创建**，是本机一套已部署的第三方注入器，我只做增量修改。
 
 
-> **路径说明**：本文中的绝对路径来自**作者本机**（VK03 副屏 + 某个日期工作区）。
-> 换机器时按你自己的实际路径替换即可；`C://ProgramData//MythCoolInject//` 是注入器的固定运行时目录，
-> 仓库目录则随你 clone/放哪儿而定。
+> **路径占位符**（本文不写死某台机器的路径，按你自己的实际位置替换）：
+> `<仓库目录>` = 本仓库所在位置 ｜ `<技能目录>` = 本技能安装到的位置 ｜ `<工作区>` = 你放源文件/导出产物的目录。
+> 例外：`C:\ProgramData\MythCoolInject\` 是注入器的固定运行时目录，**不是占位符**，所有机器都一样。
 
 ## 0. 六条铁律
 
 1. **整套皮肤 UI 装在 `rotate(90deg)` 的坐标系里。** 副屏物理是 360×960 竖屏，Myth.Cool 把内容转 90° 让人横看。**任何自定义元素只要脱离 `.mainpage_jx` 子树，方向和位置就会差 90°。** 详见 §2。
 2. **`C:\ProgramData\MythCoolInject\` 目录：能新建文件，但已存在的文件既改不了、也删不掉。** `cp` 覆盖 / `Remove-Item` / `open(path,'wb')` 一律 `Permission denied`。⇒ **部署必须由用户在管理员终端跑**；我这边只能读、只能往该目录**新增**文件。
-   ★ 推论：**别在这个目录里造临时/测试文件** —— 造了就删不掉。2026-09-30 实测留了 `_wtest.tmp`(69KB) + `log\_wtest.log` 两个废文件要用户手工清。要临时文件就去 `D:\测试临时文件夹\`。
+   ★ 推论：**别在这个目录里造临时/测试文件** —— 造了就删不掉，只能请用户开管理员终端来清。临时文件写在你自己的项目目录里，或任何你确定**能删掉**的地方。
 3. **布局是【按皮肤绑定】的（v21 起）。** `tune.json` 的 `skins` 段只列**允许改造**的皮肤；换到别的皮肤 / 自定义皮肤 / 认不出来的皮肤，注入器会**自动撤销全部界面改动**（并保留换肤探测，换回来能自动恢复）。
    ⇒ **"换了皮肤它不改界面"是设计行为，不是 bug。** 详见 §1.6。
 4. **任何"长期有效"的东西都不能只放在页面里。** 切换皮肤（尤其切到自定义皮肤）会**销毁并重建 mainpage 渲染进程**，页面里注入的一切（CSS / 浮层 / 定时器 / 观察者 / 换肤探测）**全部蒸发**。守卫必须有一份跑在**主进程**。详见 §1.7 + §5 #13。
@@ -55,8 +53,7 @@ C:\ProgramData\MythCoolInject\          ← 运行时（部署产物；我改不
   state\last_hash.txt ← 幂等状态②（v22）：inject_main.py 的 sha256 ⇒ 改了代码会自动重注入
 ```
 
-**源与工具（权威副本，也是推 GitHub 的那份）**：
-`C:\Users\14779\WorkBuddy\2026-09-28-03-57-03\mythcool-skin-hack\`
+**源与工具（权威副本，也是推 GitHub 的那份）**：`<仓库目录>`
 - `skill/tools/inject_main_v22_final.py` ← **定稿源**（文件名与内容一致；以 `grep -m1 "^VER = "` 为准）
 - `tools/inject_main.py` ← 装机模板，内容必须与定稿源**逐字节相同**（`repochk.py` 强制）
 - `tools/Inject.ps1` / `tools/InjectSilent.vbs` / `tools/Register-Task.ps1` / `tools/tune.json`
@@ -218,7 +215,7 @@ document.querySelectorAll('[data-mtc]').length   // 新增项个数
 - PS 5.1 **不认 `&&`**（报「标记"&&"不是此版本中的有效语句分隔符」），也不认 `cd /d`（`/d` 被当路径）
 - 用户还会把「多行说明」**粘成一行**（实测把 `… /DISABLE` 和 `… && Finalize…` 连在一起 ⇒ 命令本身也碎了；好在 ParserError 在解析阶段，**整行零执行**）
 - **定式**：一律给**单行 `cmd /c "…"`** 版本，复制一次即用 →
-  `cmd /c "cd /d C:\Users\14779\.workbuddy\skills\mythcool-injector\tools && Finalize_v19.cmd"`
+  `cmd /c "cd /d <技能目录>\tools && Finalize_v19.cmd"`
 - **★ 但只在"要跑 `.cmd`"时用 `cmd /c`。要给的是 PS 原生命令（`Copy-Item` / `Remove-Item` / `-Force`）就
   直接给 PS 版本 —— 2026-09-30 实测：把 `del /f`、`copy /Y` 塞进 PS 终端会报
   「找不到接受实际参数的位置形式参数」，而 `&` 在 PS 5.1 里直接是语法错。**
@@ -322,12 +319,11 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 
 > **权威在哪（v22 起明确）**：
 > - **定稿源 / 装机模板 / 部署脚本（Inject.ps1、InjectSilent.vbs、Register-Task.ps1、tune.json）**
->   → **只在仓库目录** `C:\Users\14779\WorkBuddy\2026-09-28-03-57-03\mythcool-skin-hack\`，**那是唯一权威**；
+>   → **只在仓库目录** `<仓库目录>`，**那是唯一权威**；
 > - **校验器 / 探针**（synchk / repochk / probe_geom / probe_skins / tplchk / cmdcheck / verify_markers）
 >   → 技能 `tools/` 与仓库 `skill/tools/` **各有一份**（内容同步，改完记得两边对一下）；
 > - 本表 `inject_main_v18_final.py` / `v19_final.py` 是**历史存档**，别部署。
-> - ⚠️ 技能 `tools/` 与仓库有**重复文件**，且技能里还留着一批闪黑期的工具（blink_* / Watch_* / MythCool_DisplayFix 等）。
->   这是历史遗留，**收敛前先问用户**，别擅自删。
+> - ⚠️ 技能 `tools/` 与仓库 `skill/tools/` 有**重复文件**（历史遗留），别擅自删。
 
 | 工具 | 用途 | 用法 | 需要提权 |
 |---|---|---|---|
@@ -374,7 +370,7 @@ JS 侧（`mainpage.9bcc6901.js`）按 `device360_960Rotate === 0 ? "mainpage_jx"
 
 ```bash
 C:\ProgramData\MythCoolInject\python\python.exe \
-  "C:\Users\14779\.workbuddy\skills\mythcool-injector\tools\probe_geom.py" [pid]
+  "<技能目录>\tools\probe_geom.py" [pid]
 ```
 
 - 不传 pid 就枚举所有 myth 进程挨个试；**当前终端权限就够 attach，无需管理员**
@@ -392,13 +388,13 @@ C:\ProgramData\MythCoolInject\python\python.exe \
 
 ## 4. 改源 → 校验 → 装机
 
-**源文件在工作区**（`C:\Users\14779\WorkBuddy\<日期>\inject_main_*_src.py`）。
+**源文件在工作区**（`<工作区>\inject_main_*_src.py`）。
 ⚠️ 文件名里的版本号可能落后于内部 `RES.ver`，**以 `grep "RES.ver = "` 为准**。
 
 ### ① 改完先跑静态校验
 
 ```bash
-<managed-python> "C:\Users\14779\.workbuddy\skills\mythcool-injector\tools\synchk.py" <源文件路径>
+<managed-python> "<技能目录>\tools\synchk.py" <源文件路径>
 ```
 
 它做五件事：Python `ast.parse` + 三段 JS 各自 `node --check` + 关键标记计数（CORE 缺即 FAIL / EXTRA 缺仅 WARN）+ **STALE 洁净断言**（见 §5 第 2 条）+ **beat 移除断言**（v19 起：8 个 beat 特征串必须全为 0，残留即 FAIL）。**全绿才算改对。**
@@ -406,7 +402,7 @@ C:\ProgramData\MythCoolInject\python\python.exe \
 ### ② 生成装机脚本（**不要手改模板**）
 
 ```bash
-<managed-python> "C:\Users\14779\.workbuddy\skills\mythcool-injector\tools\gen_install.py" <VER>
+<managed-python> "<技能目录>\tools\gen_install.py" <VER>
 ```
 
 它在模板基础上保证四件事：**纯 ASCII**、**CRLF 行尾**、CONFIG 各行填对、**跑一遍 trap audit**（`echo` 行不得带裸 `>` / 裸括号，不得有 `if (…)` 括号块）。输出到 `<工作区>\Install_v<VER>.cmd`。
@@ -446,7 +442,7 @@ C:\ProgramData\MythCoolInject\python\python.exe \
 | 14 | 改了注入器代码，**计划任务每分钟跑却什么都不发生**（LastResult=0、日志一行不加） | **两个独立的幂等判据都只看 pid**：① `InjectSilent.vbs`（**计划任务的真正入口**）自己有一套 `pid = last -> WQuit 0`，把 `Inject.ps1` 整个绕过；② 即使进了 ps1，它也只看 pid。改 `inject_main.py` 不会改 pid ⇒ 生效不了 | ① **删掉 VBS 里的 pid 跳过**（只留"Myth.Cool 没跑且 state=NONE"，正确性 > 省那 250ms）；② `Inject.ps1` 的幂等键加上 `inject_main.py` 的 **sha256**（写 `state\last_hash.txt`）。**绝不用 mtime** —— `Copy-Item` 会把源时间戳带过去，判据会说谎 |
 | 15 | 修完 14 之后，ps1 能进了，但报 **`FATAL missing python`** + exit 3，注入彻底死掉 | `Inject.ps1` 里 `$PY` **写死** `venv\Scripts\python.exe`，但本机实际是 `python\python.exe`（`venv` 目录根本不存在 —— 装机时没建 venv 就会落到嵌入式运行时） | **运行时探测**：`venv\Scripts\python.exe` → `python\python.exe` → `python\Scripts\python.exe` → PATH 上的 `python.exe`；都没有才 FATAL 并把**试过的全部路径**打进日志。★ 教训：仓库里的路径常量要按"装机可能有两种布局"写，别只认自己那台 |
 | 16 | 日志显示 `配置段=None / 绑定模式=False / cssLen=0`，**看着像皮肤没认出来、配置没生效** | MAIN 的顺序是「先 `executeJavaScript(PATCHCODE)`，再 `arm()`→`pushTune()`」。PATCH 先落地时它跑 `applyAll()` 时 `window.__MTC_TUNE` 还没送到 ⇒ **返回的快照是出厂默认值**（界面随后被 pushTune 那次 `__mtc_apply` 改对了，只是这份快照是旧的）。**新页面/重建后的页面尤其明显** | PATCH 末尾若 `__MTC_TUNE` 还没到就等（≤2.5s，返回 Promise）；到后发现 `RES.cfg.tuneSrc` 仍 false 就补跑一次 `applyAll()`，再返回。★ 这就是"日志不许骗人"的又一例 |
-| 17 | 在 `ProgramData\MythCoolInject\` 造了临时文件，**结果删不掉** | 该目录 ACL：可**新建**，不可**覆盖**、不可**删除**（连自己刚建的都不行） | 别在那儿造临时文件（§0 铁律 2）。要临时文件去 `D:\测试临时文件夹\` |
+| 17 | 在 `ProgramData\MythCoolInject\` 造了临时文件，**结果删不掉** | 该目录 ACL：可**新建**，不可**覆盖**、不可**删除**（连自己刚建的都不行） | 别在那儿造临时文件（§0 铁律 2）。临时文件写在你自己项目的目录里 |
 | 18 | ★★ 改完注入器**重注入报 `compile fail`**，注入整体失效 | 两层叠加：① `String.replace('PATCHCODE', …)` **只替换第一处**，而 MAIN 里 `PATCHCODE` 出现 2 次（首注入 + 自愈重打）⇒ 第二处残留成未定义标识符，**自愈重打其实从没工作过**（ReferenceError 被 try 吞）；② 改成全局替换后 **MAIN 的注释里也有一处** `PATCHCODE` 字样，被灌进十几 KB 代码后 `*/` 提前闭合注释 ⇒ 语法错 | 用 `split().join()` 全局替换；**注释里不许出现占位符字样**；★ **上线前必须本地模拟「完整拼装」并对最终代码跑 `node --check`**（只查单段不够 —— 坑在拼起来之后） |
 | 19 | ★★ 探测/诊断脚本 attach 后**副屏整屏定格**（不是闪一下，是彻底冻住） | 主进程 pid **选错**：用了「父进程不在 MythCool 集合里」的启发式，在有**启动器进程**的机器上选到了启动器/GPU 那个 pid。**对非主进程的 attach 会打断渲染管线** | **唯一可靠取法**：读 `inject.log` 的 `main-pid=<N>`（首启）或 `restarted <旧> -> <新>`（重启后）——**两种格式都要匹配**，取到后**先做存活校验**再 attach；全不可用才退回启发式，且**绝不逐个试** |
 | 20 | ★★ 注入失败后主进程被拖垮、**Myth.Cool 崩溃重启** | 幂等判据是「pid + 代码哈希」而**失败不记账**（只有成功才写 `last_hash`）⇒ 计划任务每分钟重试，每次 attach 挂 155s，反复扰动主进程，最终崩溃（实测日志 `MythCool restarted 21776 -> 16908`） | 看到 `compile fail` **立刻回滚文件止血**，别等它自愈；判断该循环看日志里连续的 `code changed (…) -> re-injecting same pid` + `inject FAILED rc=1 in 155s` |
@@ -529,7 +525,7 @@ C:\ProgramData\MythCoolInject\python\python.exe \
 | 提权终端在测什么 | 管理员终端能 attach 提权进程；但**非提权进程我这边也看不到全部**（枚举视图被过滤，`alive=False` 可能是视图限制而非进程死亡）—— 判定存活要以用户侧输出为准 |
 | 副屏硬件 | `VID_345F&PID_9132&MI_03`（MS USB Display），360×960@60 |
 | 目标页面 | `mythcool://<appid>/windows/pages/mainpage.html`（appid = `bd41175b47bf495092afff37c016a8e3`） |
-| 皮肤源码（只读参考） | `C:\Users\14779\WorkBuddy\<日期>\webapp_src\`（gpk 已导出，**查皮肤行为优先读这里，比注入探测快且零风险**） |
+| 皮肤源码（只读参考） | `<工作区>\webapp_src\`（gpk 已导出，**查皮肤行为优先读这里，比注入探测快且零风险**） |
 | 幂等机制 | 计划任务每分钟 → VBS → `Inject.ps1`，**判据 = pid 未变 且 `inject_main.py` 哈希未变** 才跳过（v22）。**改了源文件会自动重注入一次**，不用 `-Force`（-Force 仍可随时强制） |
 | 重启后失效 | 覆盖了 `ProgramData\inject_main.py` 才算持久化。只跑源码注入 = 重启即回退 |
 

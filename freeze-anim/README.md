@@ -30,7 +30,7 @@
 
 ```powershell
 # 冻结（幂等，可重复跑）
-& 'C:\Users\14779\.workbuddy\binaries\python\envs\default\Scripts\python.exe' freeze_anim.py
+& '<你机器上带 frida 的 python.exe>' freeze_anim.py
 
 # 只查状态，不改任何东西
 … freeze_anim.py status
@@ -39,8 +39,8 @@
 … freeze_anim.py undo
 ```
 
-> 换机器：这个路径是本机实测的；换成你机器上有 frida 的 python 即可
-> （注入器的 `venv\Scripts\python.exe` / `python\python.exe` 一般都装了 frida）。
+> 用你机器上**装了 frida 的 python** 跑 —— 注入器自带的
+> `venv\Scripts\python.exe` / `python\python.exe` 一般就装了 frida。
 > 也可以显式指定 pid：`freeze_anim.py apply <pid>`。
 
 ## 判读结果

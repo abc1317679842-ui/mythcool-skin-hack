@@ -29,7 +29,7 @@
 用法：
   <python> "<本文件>" <install.cmd> <VER> <应放行的源> <应拦住的源> [临时目录]
 
-  临时目录默认 D:\\测试临时文件夹（沙箱规矩）；只用来放 D4/D5 的两个样例，
+  临时目录可省略（自动选：本机约定路径 → 系统临时目录）；只用来放 D4/D5 的两个样例，
   跑完自动删。
 
 退出码：0 全绿 / 1 有问题 / 2 用法错
@@ -39,8 +39,12 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
-TMP_DEFAULT = u'D:\\\u6d4b\u8bd5\u4e34\u65f6\u6587\u4ef6\u5939'
+# 临时目录：第 6 个参数 > 本机约定路径（存在才用）> 系统临时目录。
+# 约定路径缺失时自动退回系统 temp，保证换机器也能跑。
+TMP_LOCAL = u'D:\\\u6d4b\u8bd5\u4e34\u65f6\u6587\u4ef6\u5939'
+TMP_DEFAULT = TMP_LOCAL if os.path.isdir(TMP_LOCAL) else tempfile.gettempdir()
 
 
 def run_ps(args):
