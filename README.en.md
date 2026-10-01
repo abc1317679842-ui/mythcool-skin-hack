@@ -164,7 +164,7 @@ skin package to see what's actually inside it** — as of 2026-09-30 the status 
 
 - **Established facts**: ① the offending skin (AeeBiCui "Museum 1") has **a full-screen
   animated layer as its bottommost layer** (reproducible by unpacking the package);
-  ② after freezing **only that layer**, **6–7 hours of testing turned up no recurrence**
+  ② after freezing **only that layer**, **over a day of testing turned up no recurrence**
   (previously several times per day / within hours).
 - **★ The key distinction is not "is anything animated" but "*which layer*" is animated.**
   **Stock skins have animation too** (particles and other upper-layer effects), but their
@@ -186,7 +186,7 @@ skin package to see what's actually inside it** — as of 2026-09-30 the status 
   some accompany full-system freezes, some were screen-batch defects (there is
   at least one "replaced by support, fixed" report). Compare carefully before
   blaming anything.
-- The observation window was only **6–7 hours**, not a long-term verification;
+- The observation window was only **over a day**, not a long-term verification;
   skins differ per device, so **this says nothing about your machine**.
 
 If you want to investigate this yourself: docs/05 gives a **reusable triage
